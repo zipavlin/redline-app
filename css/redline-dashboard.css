@@ -1,0 +1,20 @@
+/**
+ * Dashboard entry stylesheet. Shares the Tailwind layer (rl: prefix) with the
+ * widget via _base.css; adds only the full-page body reset, which the widget
+ * must never apply to a host page. Text sizes match the widget (Tailwind
+ * defaults) — no dashboard-specific @theme overrides.
+ */
+@import "./_base.css";
+
+/* ── Dashboard full-page defaults ── */
+body {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    line-height: 1.5;
+}
+
+/* Dashboard SPA mount point fills the viewport; the app owns internal scroll. */
+#redline-dashboard {
+    display: block;
+    height: 100vh;
+    overflow: hidden;
+}

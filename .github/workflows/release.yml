@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 jobs:
   release:
@@ -13,6 +14,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -22,4 +25,4 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/redline.js dist/redline-dashboard.js dist/redline-dashboard.css --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" dist/redline.js dist/redline-dashboard.js dist/redline-dashboard.css --generate-notes --verify-tag

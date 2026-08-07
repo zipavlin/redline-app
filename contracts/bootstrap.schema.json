@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://redline.dev/contracts/v1/bootstrap.schema.json",
+  "title": "Redline BootstrapResponse",
+  "description": "Wire shape of GET /{api}/bootstrap - the public capability manifest the widget and dashboard fetch at mount. Fail-closed on any shape violation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "features", "capabilities", "csrf"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "description": "Contract version. Currently 1. Bumped only on breaking contract changes.",
+      "const": 1
+    },
+    "features": {
+      "type": "array",
+      "description": "Enabled feature flags. Missing from the list = disabled (REDLINE_DISABLED).",
+      "items": {
+        "type": "string",
+        "enum": ["screenshots", "videos", "files", "comments", "mentions"]
+      },
+      "uniqueItems": true
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["guest_reporting", "auth", "mail"],
+      "properties": {
+        "guest_reporting": {
+          "type": "boolean",
+          "description": "redline.auth.guest - anonymous report submission allowed."
+        },
+        "auth": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "can_login",
+            "can_register",
+            "fields",
+            "can_select_role",
+            "requires_approval",
+            "requires_email_verification"
+          ],
+          "properties": {
+            "can_login": { "type": "boolean" },
+            "can_register": { "type": "boolean" },
+            "fields": {
+              "type": "array",
+              "description": "Provider-specific extra registration fields.",
+              "items": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": ["name", "type"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "type": {
+                    "type": "string",
+                    "enum": ["string", "number", "password", "pin"]
+                  },
+                  "label": { "type": "string" },
+                  "placeholder": { "type": "string" }
+                }
+              }
+            },
+            "can_select_role": { "type": "boolean" },
+            "requires_approval": { "type": "boolean" },
+            "requires_email_verification": { "type": "boolean" }
+          }
+        },
+        "mail": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["configured"],
+          "properties": {
+            "configured": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "csrf": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cookie", "header"],
+      "properties": {
+        "cookie": { "type": "string" },
+        "header": { "type": "string" }
+      }
+    }
+  }
+}

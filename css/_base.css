@@ -1,0 +1,95 @@
+/**
+ * Shared Tailwind + Nuxt UI layer - authored once, imported by both entry stylesheets
+ * (redline.css for the widget, redline-dashboard.css for the dashboard).
+ *
+ * Isolation is now structural, so no Tailwind prefix is used:
+ *   - the widget renders inside a Shadow DOM (Vue Custom Element), and
+ *   - the dashboard owns its own page.
+ * Design tokens, dark mode and component styles all come from Nuxt UI.
+ */
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+/* Scan every source file so utility classes used in templates are generated. */
+@source "../js/**/*.vue";
+@source "../js/**/*.ts";
+
+.dark {
+    --ui-bg: var(--ui-color-neutral-950);
+    --ui-bg-muted: var(--ui-color-neutral-900);
+}
+
+/* Custom animations not provided by Nuxt UI */
+@theme {
+    --animate-rec-pulse: redline-rec-pulse 1s ease-in-out infinite;
+    --animate-modal-in:  redline-modal-in .18s ease;
+    --animate-rec-spin:  redline-spin .55s linear infinite;
+}
+
+@layer base {
+    button:not(:disabled),
+    [role="button"]:not(:disabled) {
+        cursor: pointer;
+    }
+}
+
+@keyframes redline-rec-pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: .3; }
+}
+@keyframes redline-modal-in {
+    from { opacity: 0; transform: scale(.96) translateY(6px); }
+    to   { opacity: 1; transform: none; }
+}
+@keyframes redline-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Rich-text render (Prose.vue) + editor body */
+.redline-prose {
+    a { text-decoration: underline; }
+
+    ul li p, ol li p {
+        @apply my-0;
+    }
+    ul {
+        @apply list-disc ps-5 my-1;
+        & > li::marker {
+            color: var(--ui-border-accented);
+        }
+    }
+    ol {
+        @apply list-decimal ps-4 my-0;
+        li {
+            @apply ps-1;
+        }
+        & > li::marker {
+            color: var(--ui-text-muted);
+        }
+    }
+
+    ul[data-type='taskList'] { list-style: none; margin-left: 0; padding: 0; }
+    ul[data-type='taskList'] li { display: flex; align-items: flex-start; }
+    ul[data-type='taskList'] li > label { flex: 0 0 auto; margin-right: .5rem; user-select: none; }
+    ul[data-type='taskList'] li > div { flex: 1 1 auto; }
+    ul[data-type='taskList'] input[type='checkbox'] { cursor: pointer; }
+    ul[data-type='taskList'] ul[data-type='taskList'] { margin: 0; }
+}
+
+/* Tiptap / UEditor focus reset */
+.tiptap:focus-visible,
+.tiptap.ProseMirror-focused { outline: none; }
+
+/* Flip utilities */
+@utility flip-horizontal {
+    scale: -100% 100%;
+    transform-origin: center;
+}
+@utility flip-vertical {
+    scale: 100% -100%;
+    transform-origin: center;
+}
+@utility flip-diagonal {
+    scale: -100% -100%;
+    transform-origin: center;
+}

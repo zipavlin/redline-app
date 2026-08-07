@@ -1,0 +1,63 @@
+/**
+ * Widget entry stylesheet - compiled (Tailwind + Nuxt UI) and injected into the
+ * custom element's Shadow DOM via `?inline` (see redline.ts). Shared utilities
+ * live in _base.css; this file adds only the shadow-host structural layout.
+ *
+ * The widget is a Vue Custom Element: the `<redline-widget>` host owns a shadow root,
+ * so there is no host-page-scoping to do (isolation is structural). The host is
+ * absolutely positioned at the document origin with zero size so that:
+ *   - pin markers (position:absolute, page-pixel top/left) scroll with content, and
+ *   - the toolbar / overlays (position:fixed) anchor to the viewport,
+ *   - while the host itself occupies no space and never intercepts page events.
+ */
+@import "./_base.css";
+
+/* Shadow host */
+:host {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2147483647;
+    pointer-events: none;
+    font-size: 16px;
+    line-height: normal;
+}
+
+/* The in-shadow wrapper mirrors Nuxt UI's color-mode `.dark`/`.light` class
+   (which the plugin can only set on the light-DOM <html>, invisible to shadow
+   CSS) so Nuxt UI's dark-variant selectors resolve inside the shadow root. */
+[data-redline-root] {
+    pointer-events: none;
+}
+[data-redline-root] * {
+    box-sizing: border-box;
+}
+
+/* Teleport target for Nuxt UI overlays (modal/popover/tooltip/drawer/toast).
+   Fixed to the viewport; children re-enable pointer events as needed. */
+[data-redline-portal] {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483647;
+    pointer-events: none;
+}
+
+/* Pin-marker layer: absolute at the document origin so page-pixel coordinates
+   scroll naturally with the page. */
+[data-redline-markers] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    overflow: visible;
+    pointer-events: none;
+    z-index: 2147483646;
+}
+
+/* Vue transition: hover hint (chevron + popovers) */
+.rl-hint-enter-active { transition: opacity 300ms ease-in-out, transform 300ms ease-in-out; }
+.rl-hint-leave-active { transition: opacity 200ms ease-in-out, transform 200ms ease-in-out; }
+.rl-hint-enter-from, .rl-hint-leave-to { opacity: 0; transform: scale(0.95); }

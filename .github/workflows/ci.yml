@@ -19,7 +19,7 @@ jobs:
       - run: npm run test
       - run: npm run lint:boundaries
       - run: npm run build
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: github.ref == 'refs/heads/main'
         with:
           name: dist

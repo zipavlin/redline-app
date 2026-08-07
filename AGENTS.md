@@ -36,9 +36,25 @@ npm run type-check && npm run test && npm run lint:boundaries
   `globals: true`. Note: tests live in `tests/`, **not** co-located under `src/`; there
   are no tests under `src/`.
 - `npm run type-check` is **clean** in this extraction (vue-tsc --noEmit).
-- `.github/` is **empty** in this repo — frontend CI workflows are **TODO**. Note the
-  repo's `.gitignore` still lists `/.github` (and `testbench.yaml`) as leftovers from the
-  legacy monorepo; un-ignore before adding CI.
+
+## CI
+
+- `.github/workflows/ci.yml` — runs on push to `main` and on pull requests:
+  `npm ci` → `npm run type-check` → `npm run test` → `npm run lint:boundaries` →
+  `npm run build`; on pushes to `main` it uploads `dist/` as a GitHub Actions artifact
+  (temporary, not consumed automatically yet).
+- `.github/workflows/release.yml` — runs on tags matching `v*`: builds and creates a
+  GitHub Release attaching `dist/redline.js`, `dist/redline-dashboard.js`,
+  `dist/redline-dashboard.css` (no separate widget CSS — it is inlined). The Laravel
+  asset handoff (copying these into redline-laravel/public/) is still a manual step.
+- `.github/dependabot.yml` — weekly update PRs for npm and GitHub Actions dependencies.
+- `.gitignore` no longer excludes `/.github`.
+
+## API contract
+
+The consumer-side API contract lives in `contracts/` (contract version 1: README.md,
+api.md, query-grammar.md, bootstrap.md, bootstrap.schema.json, errors.md, auth.md) — the
+contract a backend must satisfy.
 
 ## Architecture
 

@@ -35,7 +35,7 @@
     "@tiptap/vue-3": "^3.27.1",
     "@zumer/snapdom": "^2.12.9",
     "html-to-image": "^1.11.13",
-    "pinia": "^2.3.0",
+    "pinia": "^4.0.2",
     "reka-ui": "^2.0.0",
     "vue": "^3.5.0",
     "vue-router": "^5.2.0"

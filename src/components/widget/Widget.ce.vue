@@ -37,6 +37,7 @@ import CreateReport from '@/components/widget/create/CreateReport.vue'
 import CreateAnnotation from '@/components/widget/create/CreateAnnotation.vue'
 import CreateVideo from '@/components/widget/create/CreateVideo.vue'
 import ConfirmDialog from '@/components/shared/ui/ConfirmDialog.vue'
+import { defineShortcuts } from '@nuxt/ui/composables/defineShortcuts'
 
 // ── Config (element attributes / DOM properties) ────────────────────────────────
 // Only transport/placement config arrives via attributes; capability flags

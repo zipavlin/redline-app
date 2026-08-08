@@ -6,6 +6,8 @@ import { identity } from '@/core/storage'
 import Position from '@/components/shared/ui/icons/Position.vue'
 import type { RedlineContext } from '@/composables/useApi'
 import { APPEARANCES, FILTERS, POSITIONS } from '@/components/widget/toolbar/presentation'
+import { useToast } from '@nuxt/ui/composables/useToast'
+import { defineShortcuts } from '@nuxt/ui/composables/defineShortcuts'
 
 const redline = inject<RedlineContext>('redline') as RedlineContext
 const store = useStore<WidgetStore>()

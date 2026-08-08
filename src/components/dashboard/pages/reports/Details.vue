@@ -16,6 +16,7 @@ import StatusChanger from '@/components/shared/ui/StatusChanger.vue'
 import ReportDetailsBrowser from '@/components/widget/report/ReportDetailsBrowser.vue'
 import ReportDetailsScreenshot from '@/components/widget/report/ReportDetailsScreenshot.vue'
 import ReportDetailsVideo from '@/components/widget/report/ReportDetailsVideo.vue'
+import { useToast } from '@nuxt/ui/composables/useToast'
 
 const store = useStore<DashboardStore>()
 const { confirm } = useConfirm()

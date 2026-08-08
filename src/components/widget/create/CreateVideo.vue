@@ -13,6 +13,7 @@ import { useCreateReport } from '@/resources/report/mutations'
 import Record from '@/components/widget/create/video/Record.vue'
 import Review from '@/components/widget/create/video/Review.vue'
 import Body from '@/components/widget/create/video/Body.vue'
+import { useToast } from '@nuxt/ui/composables/useToast'
 
 const { confirm } = useConfirm()
 const store = useStore<WidgetStore>()

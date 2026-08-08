@@ -10,6 +10,7 @@ import { useStore } from '@/composables/useStore'
 import type { WidgetStore } from '@/store/widget'
 import { ElementCapture } from '@/core/capture/element'
 import type { RedlineContext } from '@/composables/useApi'
+import { useToast } from '@nuxt/ui/composables/useToast'
 
 interface OverlayEls {
     overlay: HTMLElement

@@ -24,6 +24,8 @@ import ReportDetailsPagination from '@/components/widget/report/ReportDetailsPag
 import ReportDetailsComments from '@/components/widget/report/ReportDetailsComments.vue'
 import PopoverAsModal from '@/components/shared/ui/PopoverAsModal.vue'
 import PopoverMenu from '@/components/shared/ui/PopoverMenu.vue'
+import { useToast } from '@nuxt/ui/composables/useToast'
+import { defineShortcuts } from '@nuxt/ui/composables/defineShortcuts'
 
 const store = useStore<WidgetStore>()
 const toast = useToast()

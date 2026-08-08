@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useRedline } from '@/composables/useApi'
 import { useCreateUserMutation } from '@/resources/user/mutations'
 import { generatePassword } from '@/core/password'
+import { useToast } from '@nuxt/ui/composables/useToast'
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ 'update:open': [value: boolean] }>()

@@ -4,6 +4,7 @@ import { useStore } from '@/composables/useStore'
 import { useRedline } from '@/composables/useApi'
 import { identity } from '@/core/storage'
 import { parseApiErrors, type ApiFieldErrors } from '@/core/api/errors'
+import { useToast } from '@nuxt/ui/composables/useToast'
 
 const props = withDefaults(defineProps<{ dismissible?: boolean }>(), { dismissible: true })
 

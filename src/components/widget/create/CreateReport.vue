@@ -19,6 +19,7 @@ import {
     listsSuggestionItems,
 } from '@/components/shared/ui/editor'
 import type { EditorCustomHandlers, EditorSuggestionMenuItem } from '@nuxt/ui'
+import { useToast } from '@nuxt/ui/composables/useToast'
 
 const store = useStore<WidgetStore>()
 const toast = useToast()

@@ -7,6 +7,7 @@ import { resolveSelector } from '@/core/selector'
 import { elementPixelsToPin, pagePixelsToPin } from '@/domain/pin'
 import type { RedlineContext } from '@/composables/useApi'
 import type { SelectedReport } from '@/store/widget/selection'
+import { useToast } from '@nuxt/ui/composables/useToast'
 
 const props = withDefaults(defineProps<{
     report: SelectedReport

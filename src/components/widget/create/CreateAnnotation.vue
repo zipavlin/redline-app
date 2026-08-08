@@ -15,6 +15,7 @@ import { useCreateReport } from '@/resources/report/mutations'
 import Annotation from '@/components/widget/create/annotation/Annotation.vue'
 import Crop from '@/components/widget/create/annotation/Crop.vue'
 import Body from '@/components/widget/create/annotation/Body.vue'
+import { useToast } from '@nuxt/ui/composables/useToast'
 
 interface CaptureViewport { y: number; w: number; h: number; locked: boolean; pageW: number; pageH: number }
 interface CropRect { x: number; y: number; w: number; h: number }

@@ -17,6 +17,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import Prose from '@/components/shared/ui/Prose.vue'
 import InlineEditor from '@/components/shared/ui/InlineEditor.vue'
 import PopoverMenu from '@/components/shared/ui/PopoverMenu.vue'
+import { useToast } from '@nuxt/ui/composables/useToast'
 
 /** Auth context passed from the host surface (widget / dashboard). */
 export interface CommentAuthContext {

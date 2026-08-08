@@ -7,6 +7,7 @@ import { useAddCommentMutation } from '@/resources/comment/mutations'
 import { useComments } from '@/resources/comment/queries'
 import CommentForm from '@/components/shared/comment/CommentForm.vue'
 import CommentList from '@/components/shared/comment/CommentList.vue'
+import { useToast } from '@nuxt/ui/composables/useToast'
 
 const props = defineProps<{ report: SelectedReport }>()
 const store = useStore<WidgetStore>()

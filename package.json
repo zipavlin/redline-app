@@ -30,7 +30,7 @@
     "@tiptap/extension-link": "^3.29.2",
     "@tiptap/extension-list": "^3.29.2",
     "@tiptap/extension-paragraph": "^3.29.2",
-    "@tiptap/extension-strike": "^3.29.2",
+    "@tiptap/extension-strike": "^3.30.0",
     "@tiptap/extension-text": "^3.29.2",
     "@tiptap/vue-3": "^3.29.2",
     "@zumer/snapdom": "^2.23.2",

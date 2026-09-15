@@ -101,6 +101,18 @@ describe('AuthLogin', () => {
         })
     })
 
+    describe('host-session mode', () => {
+        it('renders no credential form and points at the host application', async () => {
+            const { wrapper } = mountAuthLogin({ config: { surface: 'dashboard', loginMode: 'session' } })
+            await flushPromises()
+
+            expect(wrapper.find('input[type="email"]').exists()).toBe(false)
+            expect(wrapper.find('input[type="password"]').exists()).toBe(false)
+            expect(findButton(wrapper, 'Sign in')).toBeUndefined()
+            expect(wrapper.text()).toContain('host application')
+        })
+    })
+
     describe('login submission', () => {
         it('activates the session with the returned user/token/remember-me, shows a welcome toast, and closes', async () => {
             const user = { ...defaultUser }

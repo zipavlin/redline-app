@@ -14,6 +14,7 @@ const fullBootstrap: BootstrapResponse = {
             can_select_role: true,
             requires_approval: true,
             requires_email_verification: false,
+            login_mode: 'session',
         },
         mail: { configured: true },
     },
@@ -21,7 +22,7 @@ const fullBootstrap: BootstrapResponse = {
 }
 
 describe('applyBootstrap', () => {
-    it('maps the nested wire shape onto all eight runtime keys and leaves unrelated keys untouched', () => {
+    it('maps the nested wire shape onto all ten runtime keys and leaves unrelated keys untouched', () => {
         const config: Record<string, unknown> = {
             url: 'https://app.test/redline/api',
             features: [],
@@ -39,6 +40,7 @@ describe('applyBootstrap', () => {
         expect(config.mailConfigured).toBe(true)
         expect(config.fields).toEqual(fullBootstrap.capabilities.auth.fields)
         expect(config.csrfCookie).toBe('bootstrap_csrf')
+        expect(config.loginMode).toBe('session')
         // Unrelated keys are not touched.
         expect(config.url).toBe('https://app.test/redline/api')
     })
@@ -57,6 +59,7 @@ describe('applyBootstrap', () => {
                     can_select_role: false,
                     requires_approval: false,
                     requires_email_verification: false,
+                    login_mode: 'credentials',
                 },
                 mail: { configured: false },
             },
@@ -74,6 +77,29 @@ describe('applyBootstrap', () => {
         expect(config.mailConfigured).toBe(false)
         expect(config.fields).toEqual([])
         expect(config.csrfCookie).toBe('redline_csrf')
+        expect(config.loginMode).toBe('credentials')
+    })
+
+    it('normalizes an absent or unknown login_mode to credentials (fail-closed)', () => {
+        const { login_mode: _omitted, ...authWithoutMode } = fullBootstrap.capabilities.auth
+        const withoutMode = {
+            ...fullBootstrap,
+            capabilities: { ...fullBootstrap.capabilities, auth: authWithoutMode },
+        } as unknown as BootstrapResponse
+        const garbageMode = {
+            ...fullBootstrap,
+            capabilities: {
+                ...fullBootstrap.capabilities,
+                auth: { ...fullBootstrap.capabilities.auth, login_mode: 'nonsense' },
+            },
+        } as unknown as BootstrapResponse
+        const config: Record<string, unknown> = { features: [], guest: false }
+
+        applyBootstrap(config, withoutMode)
+        expect(config.loginMode).toBe('credentials')
+
+        applyBootstrap(config, garbageMode)
+        expect(config.loginMode).toBe('credentials')
     })
 })
 

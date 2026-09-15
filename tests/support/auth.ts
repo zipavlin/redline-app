@@ -170,7 +170,7 @@ export function mountAuthLogin(options: MountAuthLoginOptions = {}) {
         ? vi.fn(options.forgotPassword)
         : vi.fn().mockResolvedValue({ ok: true })
 
-    const config = { surface: 'dashboard', canRegister: false, mailConfigured: false, ...(options.config ?? {}) }
+    const config = { surface: 'dashboard', canRegister: false, mailConfigured: false, loginMode: 'credentials', ...(options.config ?? {}) }
     const wrapper = mount(AuthLogin, {
         props: options.props,
         global: {

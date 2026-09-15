@@ -4,7 +4,7 @@
  * cookie mode), and post-auth activation. Depends only on the injected
  * `redline` context (for `redline.api.auth.*`).
  */
-import { nextTick, reactive } from 'vue'
+import { nextTick, reactive, watch } from 'vue'
 import { identity } from '@/core/storage'
 import { roleFlags } from '@/domain/role'
 import type { RedlineContext } from '@/composables/useApi'
@@ -31,6 +31,13 @@ export function authSlice(redline: RedlineContext) {
         authView: 'login',
     })
 
+    /**
+     * Session-check status and the once-per-mount exchange guard live in this
+     * closure so each store gets its own. `unknown` until GET /auth/me settles.
+     */
+    let sessionStatus: 'unknown' | 'absent' | 'active' = 'unknown'
+    let exchangeAttempted = false
+
     // Pre-populate synchronously from cache so the full UI renders immediately on refresh.
     const cachedUser = identity.getUser()
     if (cachedUser) {
@@ -45,6 +52,7 @@ export function authSlice(redline: RedlineContext) {
         try {
             const result = await redline.api.auth.me()
             if (result.ok && result.data?.user) {
+                sessionStatus = 'active'
                 const user = result.data.user
                 auth.user = toAuthUser(user)
 
@@ -66,10 +74,44 @@ export function authSlice(redline: RedlineContext) {
                 identity.clearUser()
                 identity.clearTokenVerified()
                 auth.user = null
+                sessionStatus = 'absent'
+                void _exchangeHostSession()
             }
         } catch { /** Keep cached state on network failure - do not mark verified */ }
     }
     nextTick(_initAuth)
+
+    /**
+     * Host-session mode: exchange the host application session for a redline
+     * session. Cookie transport only (the host session cookie only exists
+     * same-origin), once per mount, and entirely silent - a failure just leaves
+     * the visitor unauthenticated.
+     */
+    async function _exchangeHostSession() {
+        if (exchangeAttempted) return
+        if (redline.config.loginMode !== 'session') return
+        if (redline.config.cookieTransport !== true) return
+
+        exchangeAttempted = true
+        try {
+            const result = await redline.api.auth.login({})
+            if (result.ok && result.status !== 202 && result.data?.user) activateSession(result.data.user)
+        } catch { /** Silent: nothing to recover, the visitor stays logged out */ }
+    }
+
+    /**
+     * The Widget creates its store synchronously while `fetchBootstrap` resolves
+     * later over the network, so `_initAuth` finishes before `loginMode: 'session'`
+     * lands on the (reactive) config - this watch fires the exchange then. The
+     * Dashboard applies bootstrap before creating the store, covered by `immediate`.
+     */
+    watch(
+        () => redline.config.loginMode,
+        mode => {
+            if (mode === 'session' && sessionStatus === 'absent') void _exchangeHostSession()
+        },
+        { immediate: true },
+    )
 
     // Shared post-auth logic called by both login and register flows.
     function activateSession(user: AuthUser, token?: string, { rememberMe }: { rememberMe?: boolean } = {}) {

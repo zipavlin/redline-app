@@ -39,7 +39,8 @@
             "fields",
             "can_select_role",
             "requires_approval",
-            "requires_email_verification"
+            "requires_email_verification",
+            "login_mode"
           ],
           "properties": {
             "can_login": { "type": "boolean" },
@@ -64,7 +65,12 @@
             },
             "can_select_role": { "type": "boolean" },
             "requires_approval": { "type": "boolean" },
-            "requires_email_verification": { "type": "boolean" }
+            "requires_email_verification": { "type": "boolean" },
+            "login_mode": {
+              "type": "string",
+              "enum": ["credentials", "session"],
+              "description": "How the frontend obtains a redline session: credentials = email/password login form; session = exchange the host application session via an empty-body POST auth/login."
+            }
           }
         },
         "mail": {

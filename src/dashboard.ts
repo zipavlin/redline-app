@@ -61,6 +61,8 @@ export interface DashboardConfig {
     canRegister: boolean
     canSelectRole: boolean
     csrfCookie: string
+    loginMode: 'credentials' | 'session'
+    cookieTransport: boolean
 }
 
 class RedlineDashboard {
@@ -70,8 +72,16 @@ class RedlineDashboard {
     #transport: AuthTransport
 
     constructor(config: Partial<DashboardConfig> = {}) {
+        const url = config.url ?? location.origin + '/redline/api'
+
+        /**
+         * Same-origin → cookie auth (HttpOnly redline_token + redline_csrf header);
+         * cross-origin/cloud → Bearer token from the identity facade.
+         */
+        const sameOrigin = new URL(url, location.href).origin === location.origin
+
         this.config = {
-            url: config.url ?? location.origin + '/redline/api',
+            url,
             base: config.base ?? '/redline',
             features: config.features ?? [],
             requiresApproval: config.requiresApproval ?? false,
@@ -84,13 +94,10 @@ class RedlineDashboard {
             canRegister: config.canRegister ?? false,
             canSelectRole: config.canSelectRole ?? false,
             csrfCookie: config.csrfCookie ?? 'redline_csrf',
+            loginMode: config.loginMode ?? 'credentials',
+            cookieTransport: sameOrigin,
         }
 
-        /**
-         * Same-origin → cookie auth (HttpOnly redline_token + redline_csrf header);
-         * cross-origin/cloud → Bearer token from the identity facade.
-         */
-        const sameOrigin = new URL(this.config.url, location.href).origin === location.origin
         this.#transport = sameOrigin
             ? new CookieTransport(this.config.csrfCookie)
             : new BearerTransport(() => identity.getToken())

@@ -4,9 +4,23 @@
 
 The widget opens a "Sign in" modal; the dashboard shows its own sign-in view. Both ask for an email and a password.
 
+The bootstrap payload's `capabilities.auth.login_mode` selects how the frontend obtains a redline session: `credentials` (default, fail-closed) shows the email/password form described here; `session` delegates to the host application (see below).
+
 In the widget, the modal appears when an unauthenticated user interacts with the widget - expanding the toolbar or starting a capture - and login is enabled (`can_login` from the bootstrap payload, which fails closed to enabled). The dashboard shows the sign-in view when opened without a session.
 
 Both apps check the existing session on load with `GET /auth/me`. The cached user is shown immediately on refresh, before the check completes, so a signed-in user never sees an unauthenticated flash.
+
+## Host-session login (`login_mode: session`)
+
+When the backend uses a host-session auth provider, the host application session **is** the redline identity. The frontend renders no credential form: the login modal instead points the visitor at the host application ("Sign in to the host application, then reload this page."), and the dashboard's `/register` route leaves immediately.
+
+On load, the frontend still checks for a redline session with `GET /auth/me`. Only when that reports no session does it exchange the host session with an empty-body `POST /auth/login` (the backend ignores the body). The exchange:
+
+- runs only over the cookie transport (same-origin); cross-origin/cloud is never eligible, since the host session cookie only exists same-origin;
+- runs at most once per mount;
+- is silent - a non-2xx or 202 pending-approval response or a network failure leaves the visitor unauthenticated, with no toast or error state.
+
+Remember-me does not apply, and registration is closed. The fail-closed default remains `credentials`, so an absent or unrecognized `login_mode` keeps the normal email/password form.
 
 ## Remember me
 

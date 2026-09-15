@@ -21,7 +21,8 @@ No secrets or request data - only capability flags and config names.
       "fields": [],
       "can_select_role": true,
       "requires_approval": false,
-      "requires_email_verification": false
+      "requires_email_verification": false,
+      "login_mode": "credentials"
     },
     "mail": { "configured": false }
   },
@@ -42,6 +43,7 @@ No secrets or request data - only capability flags and config names.
 | `capabilities.auth.can_select_role` | boolean | `true` | Whether the role selector is shown (false e.g. PinAuthProvider) |
 | `capabilities.auth.requires_approval` | boolean | `false` | New accounts start `pending` until an admin approves |
 | `capabilities.auth.requires_email_verification` | boolean | `false` | Registration holds the account pending until the emailed link is clicked (DomainAuthProvider) |
+| `capabilities.auth.login_mode` | string enum | `credentials` | How the frontend obtains a redline session: `credentials` = email/password login form; `session` = exchange the host application session via an empty-body POST auth/login |
 | `capabilities.mail.configured` | boolean | `false` | Whether a real mailer is configured (`mail.default` not log/array/null, and `REDLINE_MAIL` not false). Gates email-dependent actions (verification, forgot-password, invitations, notifications) |
 | `csrf.cookie` | string | `redline_csrf` | The double-submit CSRF cookie name |
 | `csrf.header` | string | `X-Redline-CSRF` | The CSRF header that must echo the cookie on cookie-authenticated state changes |
@@ -63,6 +65,7 @@ throws. On `null` (or before bootstrap resolves) the runtime keeps the
 | `requiresApproval` | `false` |
 | `mailConfigured` | `false` |
 | `fields` | `[]` (only name/email/password rendered) |
+| `loginMode` | `credentials` |
 | `csrfCookie` / `csrfHeader` | element attribute hint / `redline_csrf` / `X-Redline-CSRF` |
 
 **Version mismatch:** the current consumer does **not** implement a version
@@ -71,11 +74,26 @@ not compared at mount. Fail-closed behavior is triggered only by unreachable
 or malformed payloads. (Version-gating is reserved for a future major
 contract.)
 
-On success, `applyBootstrap()` folds exactly the known keys onto the runtime
+On success, `applyBootstrap()` folds exactly the ten known keys onto the runtime
 config and - for the cookie transport - repoints the CSRF cookie/header names
 at the server-advertised ones. Transport/placement config (`api`, `dashboard`,
 `theme`, `position`, `expanded`) always comes from the host element
 attributes, never from bootstrap.
+
+### Host-session mode (`login_mode: session`)
+
+`login_mode` is an enum, not a boolean, so future auth providers can add modes
+without a contract change. `credentials` is the fail-closed default: an absent or
+unrecognized value folds to `credentials`.
+
+In `session` mode the host application session **is** the redline identity. The
+frontend renders no credential form - the login modal instead points at the host
+application - and silently exchanges the host session with an empty-body
+`POST /auth/login` (the backend ignores the body). The exchange runs only over
+the cookie transport (same-origin; cross-origin/cloud never carries the host
+cookie), only after `GET /auth/me` reports no redline session, and once per
+mount. A non-2xx or 202 pending-approval response or a network failure is silent (no toast, no error
+state, never throws); remember-me does not apply, and registration is closed.
 
 ## JSON Schema
 

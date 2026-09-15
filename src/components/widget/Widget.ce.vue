@@ -62,6 +62,13 @@ const props = withDefaults(defineProps<{
 const app = getCurrentInstance()!.appContext.app
 
 const baseUrl = props.api ?? location.origin + '/redline/api'
+
+/**
+ * Same-origin → cookie auth (HttpOnly redline_token + redline_csrf header);
+ * cross-origin/cloud → Bearer token from the identity facade.
+ */
+const sameOrigin = new URL(baseUrl, location.href).origin === location.origin
+
 const config = reactive<BootstrapRuntimeConfig>({
     url: baseUrl,
     dashboard: props.dashboard ?? location.origin + '/redline',
@@ -78,13 +85,10 @@ const config = reactive<BootstrapRuntimeConfig>({
     requiresApproval: false,
     mailConfigured: false,
     csrfCookie: props.csrf ?? 'redline_csrf',
+    loginMode: 'credentials',
+    cookieTransport: sameOrigin,
 })
 
-/**
- * Same-origin → cookie auth (HttpOnly redline_token + redline_csrf header);
- * cross-origin/cloud → Bearer token from the identity facade.
- */
-const sameOrigin = new URL(baseUrl, location.href).origin === location.origin
 const transport = sameOrigin
     ? new CookieTransport(config.csrfCookie)
     : new BearerTransport(() => identity.getToken())

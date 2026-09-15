@@ -40,6 +40,7 @@ export interface BootstrapResponse {
             can_select_role: boolean
             requires_approval: boolean
             requires_email_verification: boolean
+            login_mode: 'credentials' | 'session'
         }
         mail: { configured: boolean }
     }
@@ -57,6 +58,12 @@ export interface BootstrapRuntimeConfig {
     mailConfigured: boolean
     fields: BootstrapField[]
     csrfCookie: string
+    loginMode: 'credentials' | 'session'
+    /**
+     * Transport-derived (same-origin → true), set by the entry points - never by
+     * bootstrap. Only cookie transport can carry the host session cookie.
+     */
+    cookieTransport: boolean
     [key: string]: unknown
 }
 
@@ -83,7 +90,7 @@ export async function fetchBootstrap(client: Pick<ApiClient, 'get'>): Promise<Bo
 
 /**
  * Fold the nested bootstrap wire shape onto the flat runtime config keys, in
- * place. Only the nine known keys are touched; everything else (transport,
+ * place. Only the ten known keys are touched; everything else (transport,
  * placement, surface) is left as-is.
  */
 export function applyBootstrap(config: Record<string, unknown>, bootstrap: BootstrapResponse): void {
@@ -96,4 +103,10 @@ export function applyBootstrap(config: Record<string, unknown>, bootstrap: Boots
     config.mailConfigured = bootstrap.capabilities.mail.configured
     config.fields = bootstrap.capabilities.auth.fields
     config.csrfCookie = bootstrap.csrf.cookie
+    /**
+     * Explicit comparison (not `??`) so an absent or garbage login_mode fails
+     * closed to credentials instead of leaking a malformed value downstream.
+     */
+    const loginMode = bootstrap.capabilities.auth.login_mode
+    config.loginMode = loginMode === 'session' ? 'session' : 'credentials'
 }

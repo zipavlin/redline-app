@@ -131,6 +131,16 @@ describe('AuthView', () => {
         expect(router.currentRoute.value.path).toBe('/')
     })
 
+    it('leaves for the dashboard without a form or callback priming in host-session mode', async () => {
+        const store = createStore()
+        store.auth.callback = null
+        const { wrapper, router } = await mountAuthView({ surface: 'dashboard', canRegister: true, loginMode: 'session' }, store)
+
+        expect(router.currentRoute.value.path).toBe('/')
+        expect(wrapper.find('input[type="email"]').exists()).toBe(false)
+        expect(store.auth.callback).toBeNull()
+    })
+
     it('cleans up the auth store state when the page unmounts', async () => {
         const store = createStore()
         const { wrapper } = await mountAuthView({ surface: 'dashboard', canRegister: true }, store)

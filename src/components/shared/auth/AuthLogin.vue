@@ -23,10 +23,19 @@ const pending = ref(false)
 
 // Computed
 const open = computed(() => store.auth.callback !== null && store.auth.authView === 'login')
+const isSessionMode = computed(() => (config as { loginMode?: string }).loginMode === 'session')
 const mailConfigured = computed(() => Boolean((config as { mailConfigured?: boolean })?.mailConfigured))
 const surface = computed(() => (config as { surface?: 'widget' | 'dashboard' }).surface)
 const canRegister = computed(() => Boolean((config as { canRegister?: boolean }).canRegister))
 const isWidget = computed(() => surface.value === 'widget')
+
+/**
+ * Session mode has no credential form - the modal only tells the visitor to sign
+ * in to the host application.
+ */
+const description = computed(() =>
+    isSessionMode.value ? 'Authentication is handled by the host application' : 'Enter your credentials to continue',
+)
 
 // Watchers
 watch([email, password], () => {
@@ -119,32 +128,38 @@ async function submit() {
         :dismissible="dismissible"
         :close="dismissible"
         title="Sign in"
-        description="Enter your credentials to continue"
+        :description="description"
         :ui="{ content: 'max-w-sm' }"
         data-component="auth-login"
         @update:open="onOpenUpdate"
     >
         <template #body>
-            <form class="flex flex-col gap-4" @submit.prevent="submit">
-                <UFormField label="Email" :error="fieldError('email')">
-                    <UInput v-model="email" type="email" placeholder="you@example.com" autocomplete="email" :disabled="loading" class="w-full" />
-                </UFormField>
-                <UFormField label="Password" :error="fieldError('password')">
-                    <UInput v-model="password" type="password" autocomplete="current-password" :disabled="loading" class="w-full" />
-                </UFormField>
-                <USwitch v-model="rememberMe" label="Remember me" :disabled="loading" />
-            </form>
+            <p v-if="isSessionMode" class="text-sm text-(--ui-text-muted)">
+                Sign in to the host application, then reload this page.
+            </p>
+            <template v-else>
+                <form class="flex flex-col gap-4" @submit.prevent="submit">
+                    <UFormField label="Email" :error="fieldError('email')">
+                        <UInput v-model="email" type="email" placeholder="you@example.com" autocomplete="email" :disabled="loading" class="w-full" />
+                    </UFormField>
+                    <UFormField label="Password" :error="fieldError('password')">
+                        <UInput v-model="password" type="password" autocomplete="current-password" :disabled="loading" class="w-full" />
+                    </UFormField>
+                    <USwitch v-model="rememberMe" label="Remember me" :disabled="loading" />
+                </form>
 
-            <UButton v-if="mailConfigured" variant="link" size="sm" class="mt-2 px-0" :disabled="loading" @click="forgot">
-                Forgot password?
-            </UButton>
+                <UButton v-if="mailConfigured" variant="link" size="sm" class="mt-2 px-0" :disabled="loading" @click="forgot">
+                    Forgot password?
+                </UButton>
 
-            <p v-if="summary" :class="pending ? 'mt-3 text-sm text-(--ui-text-muted)' : 'mt-3 text-sm text-error'">{{ summary }}</p>
+                <p v-if="summary" :class="pending ? 'mt-3 text-sm text-(--ui-text-muted)' : 'mt-3 text-sm text-error'">{{ summary }}</p>
+            </template>
         </template>
 
         <template #footer>
             <div class="flex w-full items-center flex-col gap-2">
                 <UButton
+                    v-if="!isSessionMode"
                     block
                     color="success"
                     variant="subtle"
@@ -155,8 +170,8 @@ async function submit() {
                     :disabled="loading"
                     @click="submit"
                 />
-                <UButton v-if="isWidget && canRegister" variant="link" size="sm" trailing-icon="i-lucide-arrow-right" @click="openRegister">Need an account? Sign up</UButton>
-                <UButton v-else-if="!isWidget && canRegister" variant="link" size="sm" trailing-icon="i-lucide-arrow-right" @click="store.auth.authView = 'register'">Don't have an account? Create one</UButton>
+                <UButton v-if="!isSessionMode && isWidget && canRegister" variant="link" size="sm" trailing-icon="i-lucide-arrow-right" @click="openRegister">Need an account? Sign up</UButton>
+                <UButton v-else-if="!isSessionMode && !isWidget && canRegister" variant="link" size="sm" trailing-icon="i-lucide-arrow-right" @click="store.auth.authView = 'register'">Don't have an account? Create one</UButton>
             </div>
         </template>
     </UModal>

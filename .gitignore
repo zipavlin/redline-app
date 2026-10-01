@@ -32,3 +32,6 @@ phpstan.neon
 /.codex
 /.opencode
 /.junie
+/.agents
+/.openchamber
+skills-lock.json

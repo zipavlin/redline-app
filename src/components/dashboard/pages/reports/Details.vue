@@ -12,6 +12,7 @@ import CommentList from '@/components/shared/comment/CommentList.vue'
 import Prose from '@/components/shared/ui/Prose.vue'
 import InlineEditor from '@/components/shared/ui/InlineEditor.vue'
 import PopoverMenu from '@/components/shared/ui/PopoverMenu.vue'
+import ReportMembers from '@/components/shared/report/ReportMembers.vue'
 import StatusChanger from '@/components/shared/ui/StatusChanger.vue'
 import ReportDetailsBrowser from '@/components/widget/report/ReportDetailsBrowser.vue'
 import ReportDetailsScreenshot from '@/components/widget/report/ReportDetailsScreenshot.vue'
@@ -45,6 +46,8 @@ const isAuthor = computed(() => !!store.auth.user && store.auth.user.id === acti
 // Body editing is author-only; delete is author OR admin (mirror backend policy).
 const canEdit = computed(() => isAuthor.value)
 const canDelete = computed(() => !!store.auth.user && (store.auth.user.isAdmin || isAuthor.value))
+// Member editing mirrors the backend UPDATE gate: author OR developer/admin.
+const canEditMembers = computed(() => !!store.auth.user && (store.auth.user.isDeveloper || isAuthor.value))
 const optionsItems = computed(() => {
     const items: {
         label: string
@@ -145,7 +148,7 @@ function openDetails(panel: DetailsPanel) {
     >
         <template #header>
             <div class="p-4 pb-0">
-                <div class="flex items-start justify-between gap-2">
+                <div class="flex items-center justify-between gap-2">
                     <UUser
                         class="min-w-0 flex-1"
                         :ui="{ wrapper: 'min-w-0', name: 'truncate', description: 'truncate' }"
@@ -154,6 +157,11 @@ function openDetails(panel: DetailsPanel) {
                         :description="store.report.active.author?.email"
                     />
                     <UDashboardSidebarToggle size="xs" class="-mt-1 shrink-0" />
+                    <ReportMembers
+                        :report-id="store.report.active.id"
+                        :members="store.report.active.members ?? []"
+                        :can-edit="canEditMembers"
+                    />
                     <PopoverMenu
                         v-if="canEdit || canDelete"
                         placement="bottom"

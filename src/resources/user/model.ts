@@ -49,6 +49,7 @@ export interface UserRow {
     name?: string
     email?: string
     role?: Role
+    initials?: string
     reports_count?: number
     comments_count?: number
 }

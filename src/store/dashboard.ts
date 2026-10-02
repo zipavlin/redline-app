@@ -21,7 +21,7 @@ export const useDashboardStore = defineStore('redline-dashboard', () => {
 
     const { auth, activateSession } = authSlice(redline)
     const { settings } = settingsSlice(redline)
-    const { report, reportFilterParams, reportListParams, openReport, closeReport } = reportSlice(redline)
+    const { report, reportFilterParams, reportListParams, openReport, closeReport } = reportSlice(redline, auth)
     const { users, userListParams, openUser, closeUser } = usersSlice(redline)
 
     // Functions

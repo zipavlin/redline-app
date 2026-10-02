@@ -3,7 +3,7 @@ import { defineComponent, ref } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { VueQueryPlugin } from '@tanstack/vue-query'
 import { userKeys } from '@/resources/user/keys'
-import { useUserList, useUserTabCounts } from '@/resources/user/queries'
+import { useUserList, useUserTabCounts, useMemberCandidates } from '@/resources/user/queries'
 import type { ApiResult } from '@/core/api/types'
 import type { ListParams } from '@/core/api/params'
 import type { UserListResponse } from '@/resources/user/model'
@@ -53,6 +53,7 @@ describe('useUserList', () => {
 
         expect(result.isError.value).toBe(true)
         expect(result.error.value?.message).toBe('Failed to load users')
+        expect((result.error.value as unknown as { status?: number })?.status).toBe(500)
     })
 
     it('stays disabled until the enabled flag turns on', async () => {
@@ -85,6 +86,59 @@ describe('useUserList', () => {
         await vi.advanceTimersByTimeAsync(50)
         expect(api.user.index).toHaveBeenCalledTimes(2)
         expect(result.data.value).toEqual(userListFixture())
+    })
+})
+
+describe('useMemberCandidates', () => {
+    it('requests approved non-guest candidates with name/initials and a name sort', async () => {
+        const fixture = userListFixture()
+        const { api, queryClient, result } = mountResource(
+            () => useMemberCandidates({}),
+            makeApi,
+            (api) => api.user.index.mockResolvedValue({ ok: true, status: 200, data: fixture }),
+        )
+        await flushPromises()
+
+        expect(api.user.index).toHaveBeenCalledWith({
+            'filter[status]': 'approved',
+            'filter[role:in]': 'reporter,developer,admin',
+            'include[]': ['name', 'initials'],
+            'sort[name]': 'asc',
+        })
+        expect(result.data.value).toEqual(fixture)
+        expect(queryClient.getQueryData(userKeys.list({
+            'filter[status]': 'approved',
+            'filter[role:in]': 'reporter,developer,admin',
+            'include[]': ['name', 'initials'],
+            'sort[name]': 'asc',
+        }))).toEqual(fixture)
+    })
+
+    it('stays disabled until the enabled flag turns on', async () => {
+        const enabled = ref(false)
+        const { api } = mountResource(
+            () => useMemberCandidates({ enabled }),
+            makeApi,
+            (api) => api.user.index.mockResolvedValue({ ok: true, status: 200, data: userListFixture() }),
+        )
+        await flushPromises()
+        expect(api.user.index).not.toHaveBeenCalled()
+
+        enabled.value = true
+        await flushPromises()
+        expect(api.user.index).toHaveBeenCalledTimes(1)
+    })
+
+    it('surfaces a 403 via error.status so callers can degrade to self', async () => {
+        const { result } = mountResource(
+            () => useMemberCandidates({}),
+            makeApi,
+            (api) => api.user.index.mockResolvedValue({ ok: false, status: 403, data: null }),
+        )
+        await flushPromises()
+
+        expect(result.isError.value).toBe(true)
+        expect((result.error.value as unknown as { status?: number })?.status).toBe(403)
     })
 })
 

@@ -12,6 +12,10 @@ function createMockRedline() {
     } as any
 }
 
+function createMockAuth(user: { id: string } | null = { id: 'me' }): any {
+    return { user, callback: null, authView: 'login' }
+}
+
 describe('reportSlice', () => {
     let redline: ReturnType<typeof createMockRedline>
 
@@ -20,11 +24,13 @@ describe('reportSlice', () => {
     })
 
     it('initializes with default filter state', () => {
-        const { report } = reportSlice(redline)
+        const { report } = reportSlice(redline, createMockAuth())
 
         expect(report.filter.statusGroup).toBe('all')
         expect(report.filter.search).toBe('')
         expect(report.filter.mine).toBe(false)
+        expect(report.filter.assignedToMe).toBe(false)
+        expect(report.filter.memberIds).toEqual([])
         expect(report.sort).toBe('created_at')
         expect(report.dir).toBe('desc')
         expect(report.page.page).toBe(1)
@@ -32,7 +38,7 @@ describe('reportSlice', () => {
     })
 
     it('builds list params with pagination and sort', () => {
-        const { reportListParams } = reportSlice(redline)
+        const { reportListParams } = reportSlice(redline, createMockAuth())
         const params = reportListParams()
 
         expect(params['paginate[page]']).toBe('1')
@@ -41,7 +47,7 @@ describe('reportSlice', () => {
     })
 
     it('includes status filter when not "all"', () => {
-        const { report, reportListParams } = reportSlice(redline)
+        const { report, reportListParams } = reportSlice(redline, createMockAuth())
         report.filter.statusGroup = 'unresolved'
         const params = reportListParams()
 
@@ -49,7 +55,7 @@ describe('reportSlice', () => {
     })
 
     it('includes search filter with like operator', () => {
-        const { report, reportListParams } = reportSlice(redline)
+        const { report, reportListParams } = reportSlice(redline, createMockAuth())
         report.filter.search = 'bug'
         const params = reportListParams()
 
@@ -57,7 +63,7 @@ describe('reportSlice', () => {
     })
 
     it('includes mine filter', () => {
-        const { report, reportListParams } = reportSlice(redline)
+        const { report, reportListParams } = reportSlice(redline, createMockAuth())
         report.filter.mine = true
         const params = reportListParams()
 
@@ -65,7 +71,7 @@ describe('reportSlice', () => {
     })
 
     it('includes date range filters', () => {
-        const { report, reportListParams } = reportSlice(redline)
+        const { report, reportListParams } = reportSlice(redline, createMockAuth())
         report.filter.dateFrom = '2024-01-01'
         report.filter.dateTo = '2024-12-31'
         const params = reportListParams()
@@ -75,7 +81,7 @@ describe('reportSlice', () => {
     })
 
     it('includes author filter', () => {
-        const { report, reportListParams } = reportSlice(redline)
+        const { report, reportListParams } = reportSlice(redline, createMockAuth())
         report.filter.userId = 'user-123'
         const params = reportListParams()
 
@@ -83,7 +89,7 @@ describe('reportSlice', () => {
     })
 
     it('includes existence filters', () => {
-        const { report, reportListParams } = reportSlice(redline)
+        const { report, reportListParams } = reportSlice(redline, createMockAuth())
         report.filter.hasMedia = true
         report.filter.hasComments = true
         const params = reportListParams()
@@ -93,7 +99,7 @@ describe('reportSlice', () => {
     })
 
     it('includes location filter', () => {
-        const { report, reportListParams } = reportSlice(redline)
+        const { report, reportListParams } = reportSlice(redline, createMockAuth())
         report.filter.location = '/dashboard'
         const params = reportListParams()
 
@@ -101,7 +107,7 @@ describe('reportSlice', () => {
     })
 
     it('openReport loads report detail and sets active', async () => {
-        const { report, openReport } = reportSlice(redline)
+        const { report, openReport } = reportSlice(redline, createMockAuth())
         await openReport('1')
 
         expect(redline.api.report.show).toHaveBeenCalledWith('1', expect.any(Object))
@@ -109,11 +115,48 @@ describe('reportSlice', () => {
     })
 
     it('closeReport clears active report', async () => {
-        const { report, openReport, closeReport } = reportSlice(redline)
+        const { report, openReport, closeReport } = reportSlice(redline, createMockAuth())
         await openReport('1')
         expect(report.active).not.toBeNull()
 
         closeReport()
         expect(report.active).toBeNull()
+    })
+
+    it('sends filter[member]=<me> when assignedToMe', () => {
+        const { report, reportFilterParams } = reportSlice(redline, createMockAuth({ id: 'me' }))
+        report.filter.assignedToMe = true
+
+        expect(reportFilterParams()['filter[member]']).toBe('me')
+    })
+
+    it('skips the member filter when assignedToMe but there is no user', () => {
+        const { report, reportFilterParams } = reportSlice(redline, createMockAuth(null))
+        report.filter.assignedToMe = true
+
+        expect(reportFilterParams()['filter[member]']).toBeUndefined()
+    })
+
+    it('sends filter[member:in] for memberIds', () => {
+        const { report, reportFilterParams } = reportSlice(redline, createMockAuth())
+        report.filter.memberIds = ['u1', 'u2']
+
+        expect(reportFilterParams()['filter[member:in]']).toBe('u1,u2')
+    })
+
+    it('sends the bare member and :in member filters together', () => {
+        const { report, reportFilterParams } = reportSlice(redline, createMockAuth({ id: 'me' }))
+        report.filter.assignedToMe = true
+        report.filter.memberIds = ['u1']
+        const params = reportFilterParams()
+
+        expect(params['filter[member]']).toBe('me')
+        expect(params['filter[member:in]']).toBe('u1')
+    })
+
+    it('includes members:count in the dashboard list params', () => {
+        const { reportListParams } = reportSlice(redline, createMockAuth())
+
+        expect(reportListParams()['include[]']).toContain('members:count')
     })
 })

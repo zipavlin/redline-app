@@ -10,7 +10,7 @@ describe('makeReportApi', () => {
         expectPathAndQuery(
             client.get.mock.calls[0][0] as string,
             'report',
-            'include[]=title&include[]=url&include[]=location&include[author]=id,name,email',
+            'include[]=title&include[]=url&include[]=location&include[]=members:count&include[author]=id,name,email',
         )
     })
 
@@ -60,5 +60,17 @@ describe('makeReportApi', () => {
         const client = createClient()
         await makeReportApi(client).status('r1', 'resolved')
         expect(client.patch).toHaveBeenCalledWith('report/r1/status', { status: 'resolved' })
+    })
+
+    it('adds members via POST report/{id}/member with { user_ids }', async () => {
+        const client = createClient()
+        await makeReportApi(client).addMembers('r1', ['u1', 'u2'])
+        expect(client.post).toHaveBeenCalledWith('report/r1/member', { user_ids: ['u1', 'u2'] })
+    })
+
+    it('removes members via DELETE report/{id}/member with { user_ids }', async () => {
+        const client = createClient()
+        await makeReportApi(client).removeMembers('r1', ['u1'])
+        expect(client.delete).toHaveBeenCalledWith('report/r1/member', { user_ids: ['u1'] })
     })
 })

@@ -22,6 +22,7 @@ import ReportDetailsScreenshot from '@/components/widget/report/ReportDetailsScr
 import ReportDetailsVideo from '@/components/widget/report/ReportDetailsVideo.vue'
 import ReportDetailsPagination from '@/components/widget/report/ReportDetailsPagination.vue'
 import ReportDetailsComments from '@/components/widget/report/ReportDetailsComments.vue'
+import ReportMembers from '@/components/shared/report/ReportMembers.vue'
 import PopoverAsModal from '@/components/shared/ui/PopoverAsModal.vue'
 import PopoverMenu from '@/components/shared/ui/PopoverMenu.vue'
 import { useToast } from '@nuxt/ui/composables/useToast'
@@ -40,6 +41,7 @@ const isStatusLoading = ref(false)
 const isDeleteConfirmOpen = ref(false)
 const isDeleteLoading = ref(false)
 const isMenuOpen = ref(false)
+const isMembersOpen = ref(false)
 // Inline body editing - locked (non-dismissible) so the draft can't be lost.
 const isEditing = ref(false)
 const isBodySaving = ref(false)
@@ -83,13 +85,16 @@ const canEdit = computed(() => isAuthor.value)
 const canDelete = computed(() => !!store.auth.user && (store.auth.user.isAdmin || isAuthor.value))
 // Status change permission is unchanged: author OR developer.
 const canChangeStatus = computed(() => !!store.auth.user && (store.auth.user.isDeveloper || isAuthor.value))
+// Member editing permission mirrors the backend UPDATE gate: author OR developer/admin.
+const canEditMembers = computed(() => !!store.auth.user && (store.auth.user.isDeveloper || isAuthor.value))
 const hasElement = computed(() => store.report.active?.element instanceof Element)
 
 /**
  * Panel is non-dismissible while editing (draft protection), while the options
- * menu is open, or while the comments panel is showing its composer.
+ * menu is open, while the members popover is open, or while the comments panel
+ * is showing its composer.
  */
-const dismissible = computed(() => !isEditing.value && !isMenuOpen.value && detailsPanel.value !== 'comments')
+const dismissible = computed(() => !isEditing.value && !isMenuOpen.value && !isMembersOpen.value && detailsPanel.value !== 'comments')
 
 const optionsItems = computed(() => {
     const items: {
@@ -117,6 +122,7 @@ watch(() => store.report.active, (report) => {
     if (!report) {
         detailsPanel.value = null
         isMenuOpen.value = false
+        isMembersOpen.value = false
         isEditing.value = false
         isElementBorderActive.value = false
         elementBorderRect.value = null
@@ -294,6 +300,12 @@ onMounted(() => {
                     </UUser>
                 </template>
                 <template #header-actions>
+                    <ReportMembers
+                        :report-id="store.report.active.id"
+                        :members="store.report.active.members ?? []"
+                        :can-edit="canEditMembers"
+                        @update:open="(membersOpen: boolean) => isMembersOpen = membersOpen"
+                    />
                     <PopoverMenu
                         v-if="canEdit || canDelete"
                         placement="bottom"

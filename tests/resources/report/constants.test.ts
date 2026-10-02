@@ -18,7 +18,7 @@ describe('WIDGET_LIST_INCLUDE', () => {
 describe('WIDGET_DETAIL_INCLUDE', () => {
     it('locks the widget detail include contract (full payload + author name)', () => {
         expect(WIDGET_DETAIL_INCLUDE).toEqual({
-            'include[]': ['pin', 'element', 'title', 'body', 'browser', 'comments', 'location', 'url'],
+            'include[]': ['pin', 'element', 'title', 'body', 'browser', 'comments', 'location', 'url', 'members'],
             'include[author]': 'id,name',
             'include[screenshot]': 'url',
             'include[video]': 'url',
@@ -27,9 +27,9 @@ describe('WIDGET_DETAIL_INCLUDE', () => {
 })
 
 describe('DASHBOARD_LIST_INCLUDE', () => {
-    it('locks the dashboard list include contract (title/url/location + author email)', () => {
+    it('locks the dashboard list include contract (title/url/location/members:count + author email)', () => {
         expect(DASHBOARD_LIST_INCLUDE).toEqual({
-            'include[]': ['title', 'url', 'location'],
+            'include[]': ['title', 'url', 'location', 'members:count'],
             'include[author]': 'id,name,email',
         })
     })
@@ -38,7 +38,7 @@ describe('DASHBOARD_LIST_INCLUDE', () => {
 describe('DASHBOARD_DETAIL_INCLUDE', () => {
     it('locks the dashboard detail include contract (full payload + author email)', () => {
         expect(DASHBOARD_DETAIL_INCLUDE).toEqual({
-            'include[]': ['title', 'body', 'browser', 'comments', 'location', 'url'],
+            'include[]': ['title', 'body', 'browser', 'comments', 'location', 'url', 'members'],
             'include[author]': 'id,name,email',
             'include[screenshot]': 'url',
             'include[video]': 'url',

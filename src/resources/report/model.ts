@@ -1,4 +1,5 @@
 import type { Status } from '@/domain/status'
+import { initialsFromName } from '@/domain/initials'
 import type { Pin } from '@/core/pin'
 import type { Comment } from '@/resources/comment/model'
 import type { Screenshot } from '@/resources/screenshot/models'
@@ -22,6 +23,29 @@ export interface Report {
     screenshot?: Screenshot
     video?: Video
     comments?: Comment[]
+    members?: Member[]
+    members_count?: number
+    members_exists?: boolean
+}
+
+/** A report member as projected by the backend `{ id, name, initials }`. */
+export interface Member {
+    id: string
+    name: string
+    initials: string
+}
+
+export interface MembersResponse {
+    members: Member[]
+}
+
+/**
+ * Project a user list row onto the member shape, deriving initials when the
+ * user payload did not include them.
+ */
+export function memberFromUser(user: { id: string; name?: string; initials?: string }): Member {
+    const name = user.name ?? ''
+    return { id: user.id, name, initials: user.initials || initialsFromName(name) }
 }
 
 export interface ReportCounts {
@@ -46,4 +70,6 @@ export interface DashboardReportRow {
     comments_count?: number
     screenshot_exists?: boolean
     video_exists?: boolean
+    members_count?: number
+    members_exists?: boolean
 }

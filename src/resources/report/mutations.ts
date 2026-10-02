@@ -6,7 +6,7 @@ import { getBrowserInfo } from '@/core/browser'
 import { getCssSelector, resolveSelector } from '@/core/selector'
 import { pagePixelsToPin, pinToElementPixels } from '@/domain/pin'
 import { reportKeys } from '@/resources/report/keys'
-import type { Report } from '@/resources/report/model'
+import type { Member, Report } from '@/resources/report/model'
 
 /**
  * Minimal store surface the body-update merge writes back to. The widget and
@@ -16,6 +16,9 @@ import type { Report } from '@/resources/report/model'
  */
 export interface ReportStoreEntry {
     id: string
+    members?: Member[]
+    members_count?: number
+    members_exists?: boolean
     [key: string]: unknown
 }
 
@@ -52,6 +55,18 @@ function mergeReportIntoStore(store: ReportStoreLike, resp: Report, id: string):
     if (idx !== -1) {
         store.report.list[idx] = mergeReportPayload(store.report.list[idx], resp)
     }
+}
+
+/**
+ * Write the server's authoritative member list into the active Pinia report and
+ * its list row. The list row keeps the full list plus the derived count/exists
+ * flags so the dashboard badge stays in sync.
+ */
+export function applyMembersToStore(store: ReportStoreLike, id: string, members: Member[]): void {
+    const fields = { members, members_count: members.length, members_exists: members.length > 0 }
+    if (store.report.active?.id === id) Object.assign(store.report.active, fields)
+    const row = store.report.list.find((entry) => entry.id === id)
+    if (row) Object.assign(row, fields)
 }
 
 /**
@@ -111,6 +126,132 @@ export function useReportStatusMutation() {
             qc.invalidateQueries({ queryKey: reportKeys.aggregates() })
         },
     })
+}
+
+interface MemberMutationVariables {
+    id: string
+    userIds: string[]
+    optimistic?: Member[]
+}
+
+interface MemberFields {
+    members?: Member[]
+    members_count?: number
+    members_exists?: boolean
+}
+
+interface MemberMutationContext {
+    previous: { active: MemberFields | null; row: MemberFields | null }
+}
+
+function readMemberFields(entry: ReportStoreEntry | null | undefined): MemberFields | null {
+    if (!entry) return null
+    return {
+        members: entry.members,
+        members_count: entry.members_count,
+        members_exists: entry.members_exists,
+    }
+}
+
+function snapshotMembers(store: ReportStoreLike, id: string): MemberMutationContext['previous'] {
+    const active = store.report.active?.id === id ? readMemberFields(store.report.active) : null
+    return { active, row: readMemberFields(store.report.list.find((entry) => entry.id === id)) }
+}
+
+function restoreMembers(store: ReportStoreLike, id: string, previous: MemberMutationContext['previous']): void {
+    if (previous.active && store.report.active?.id === id) Object.assign(store.report.active, previous.active)
+    if (previous.row) {
+        const row = store.report.list.find((entry) => entry.id === id)
+        if (row) Object.assign(row, previous.row)
+    }
+}
+
+function mergeMembers(current: Member[], entries: Member[]): Member[] {
+    const byId = new Map(current.map((member) => [member.id, member]))
+    for (const entry of entries) byId.set(entry.id, entry)
+    return [...byId.values()]
+}
+
+function optimisticMembers(current: Member[], kind: 'add' | 'remove', userIds: string[], entries: Member[]): Member[] {
+    return kind === 'add'
+        ? mergeMembers(current, entries)
+        : current.filter((member) => !userIds.includes(member.id))
+}
+
+interface OptimisticMembersInput {
+    id: string
+    kind: 'add' | 'remove'
+    userIds: string[]
+    entries: Member[]
+}
+
+function applyOptimisticMembers(store: ReportStoreLike, { id, kind, userIds, entries }: OptimisticMembersInput): void {
+    const targets: ReportStoreEntry[] = []
+    if (store.report.active?.id === id) targets.push(store.report.active)
+    const row = store.report.list.find((entry) => entry.id === id)
+    if (row) targets.push(row)
+    for (const target of targets) {
+        const current = target.members ?? []
+        const next = optimisticMembers(current, kind, userIds, entries)
+        Object.assign(target, { members: next, members_count: next.length, members_exists: next.length > 0 })
+    }
+}
+
+/**
+ * Shared add/remove member mutation. `kind` selects the endpoint; the optimistic
+ * merge, rollback snapshot, and cache invalidation are identical for both.
+ */
+export function useMemberMutation(kind: 'add' | 'remove') {
+    const api = useApi()
+    const qc = useQueryClient()
+    const store = useStore<SharedStore & ReportStoreLike>()
+    const callApi = kind === 'add'
+        ? (id: string, userIds: string[]) => api.report.addMembers(id, userIds)
+        : (id: string, userIds: string[]) => api.report.removeMembers(id, userIds)
+
+    return useMutation<Member[], Error, MemberMutationVariables, MemberMutationContext>({
+        mutationFn: async ({ id, userIds }) => {
+            const res = await callApi(id, userIds)
+            if (!res.ok) {
+                throw Object.assign(new Error('Failed to update members'), { response: res })
+            }
+            return res.data.members
+        },
+        onMutate: async ({ id, userIds, optimistic }) => {
+            await qc.cancelQueries({ queryKey: reportKeys.detail(id) })
+            await qc.cancelQueries({ queryKey: reportKeys.lists() })
+            const previous = snapshotMembers(store, id)
+            applyOptimisticMembers(store, { id, kind, userIds, entries: optimistic ?? [] })
+            return { previous }
+        },
+        onError: (_error, { id }, context) => {
+            if (context) restoreMembers(store, id, context.previous)
+        },
+        onSuccess: (members, { id }) => {
+            applyMembersToStore(store, id, members)
+            qc.invalidateQueries({ queryKey: reportKeys.lists() })
+            qc.invalidateQueries({ queryKey: reportKeys.detail(id) })
+        },
+    })
+}
+
+export function useAddMembersMutation() {
+    return useMemberMutation('add')
+}
+
+export function useRemoveMembersMutation() {
+    return useMemberMutation('remove')
+}
+
+/**
+ * Map a member-mutation failure to a user-facing toast title: 422 uses the
+ * server's message, 403 is a permission failure, anything else is the fallback.
+ */
+export function memberMutationError(error: unknown, fallback = 'Could not update members'): string {
+    const response = (error as { response?: { status?: number; data?: { message?: string } } })?.response
+    if (response?.status === 422 && response.data?.message) return response.data.message
+    if (response?.status === 403) return 'You do not have permission to change members'
+    return fallback
 }
 
 export interface CreateReportInput {

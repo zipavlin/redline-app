@@ -2,7 +2,7 @@ import type { ApiClient } from '@/core/api/client'
 import { buildQuery } from '@/core/api/client'
 import type { ListParams } from '@/core/api/params'
 import type { ApiResult, AggregateResult } from '@/core/api/types'
-import type { Report, ReportListResponse } from '@/resources/report/model'
+import type { Report, ReportListResponse, MembersResponse } from '@/resources/report/model'
 
 export function makeReportApi(client: ApiClient) {
     return {
@@ -36,6 +36,14 @@ export function makeReportApi(client: ApiClient) {
 
         status(id: string, status: string): Promise<ApiResult<Report>> {
             return client.patch<Report>(`report/${id}/status`, { status })
+        },
+
+        addMembers(id: string, userIds: string[]): Promise<ApiResult<MembersResponse>> {
+            return client.post<MembersResponse>(`report/${id}/member`, { user_ids: userIds })
+        },
+
+        removeMembers(id: string, userIds: string[]): Promise<ApiResult<MembersResponse>> {
+            return client.delete<MembersResponse>(`report/${id}/member`, { user_ids: userIds })
         },
     }
 }

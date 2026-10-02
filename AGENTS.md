@@ -147,6 +147,14 @@ top-level layer** without updating `.dependency-cruiser.cjs`.
 - Do not import `core/` from `domain/`; do not reach into `store/`/`components/` from
   `resources/` (depcruise enforces this).
 
+## Plans location
+
+- Repository plans live in `.openchamber/plans/` - pinned in
+  `.openchamber/project.json` (`plansDir`) - and **never** in `.opencode/plans/`.
+  OpenChamber's Context -> Plans tab reads only the configured folder, so a plan
+  written to `.opencode/plans/` never appears in the UI. The `plan` agent has the
+  same target; any other agent that writes a plan must use `.openchamber/plans/`.
+
 ## Related repositories
 
 - **redline-laravel** (public, `github.com/zipavlin/redline-laravel`) - Composer package

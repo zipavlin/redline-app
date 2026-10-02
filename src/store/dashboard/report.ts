@@ -4,6 +4,7 @@
  */
 import { reactive } from 'vue'
 import type { RedlineContext } from '@/composables/useApi'
+import type { AuthState } from '@/store/partials/auth'
 import type { DashboardReportRow, Report } from '@/resources/report/model'
 import type { ListParams, SortDir } from '@/core/api/params'
 import {
@@ -20,6 +21,8 @@ export interface ReportFilter {
     statusGroup: ReportStatusGroup
     search: string
     mine: boolean
+    assignedToMe: boolean
+    memberIds: string[]
     dateFrom: string | null
     dateTo: string | null
     userId: string | null
@@ -38,7 +41,7 @@ export interface ReportSliceState {
     page: { page: number; perPage: number }
 }
 
-export function reportSlice(redline: RedlineContext) {
+export function reportSlice(redline: RedlineContext, auth: AuthState) {
     const report = reactive<ReportSliceState>({
         list: [],
         loaded: false,
@@ -47,6 +50,8 @@ export function reportSlice(redline: RedlineContext) {
             statusGroup: 'all',
             search: '',
             mine: false,
+            assignedToMe: false,
+            memberIds: [],
             dateFrom: null,
             dateTo: null,
             userId: null,
@@ -66,6 +71,9 @@ export function reportSlice(redline: RedlineContext) {
         if (report.filter.statusGroup !== 'all') parts.push(filterParams('status', report.filter.statusGroup))
         if (report.filter.search) parts.push(filterParams('body', report.filter.search, 'like'))
         if (report.filter.mine) parts.push(filterParams('mine', '1'))
+        // Backend removed filter[assigned]; "assigned to me" is client-side now.
+        if (report.filter.assignedToMe && auth.user?.id) parts.push(filterParams('member', auth.user.id))
+        if (report.filter.memberIds.length) parts.push(filterParams('member', report.filter.memberIds.join(','), 'in'))
         if (report.filter.dateFrom) parts.push(filterParams('created_at', report.filter.dateFrom, 'from'))
         if (report.filter.dateTo) parts.push(filterParams('created_at', report.filter.dateTo, 'to'))
         if (report.filter.userId) parts.push(filterParams('author', report.filter.userId))

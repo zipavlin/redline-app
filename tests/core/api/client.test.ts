@@ -81,4 +81,19 @@ describe('ApiClient transport wiring', () => {
         expect(me.init.method).toBe('GET')
         expect(header(me.init, 'X-Redline-CSRF')).toBeUndefined()
     })
+
+    it('cookie transport: DELETE sends the method and JSON body with the CSRF header', async () => {
+        document.cookie = 'redline_csrf=csrf-xyz; Path=/'
+        const fetchMock = mockFetch()
+        const client = new ApiClient('https://app.test/redline/api', new CookieTransport())
+
+        await client.delete('report/r1/member', { user_ids: ['u1'] })
+
+        const { url, init } = requestInfo(fetchMock.mock.calls[0])
+        expect(url).toBe('https://app.test/redline/api/report/r1/member')
+        expect(init.method).toBe('DELETE')
+        expect(init.body).toBe(JSON.stringify({ user_ids: ['u1'] }))
+        expect(header(init, 'Content-Type')).toBe('application/json')
+        expect(header(init, 'X-Redline-CSRF')).toBe('csrf-xyz')
+    })
 })

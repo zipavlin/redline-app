@@ -8,6 +8,7 @@ import { useDashboardTable } from '@/composables/useDashboardTable'
 import { getFormattedDatetime, getRelativeTime } from '@/core/datetime'
 import { statusColor, statusLabel } from '@/domain/status'
 import { useReportList, useReportAggregate } from '@/resources/report/queries'
+import { useMemberCandidates } from '@/resources/user/queries'
 import ReportFilterTags from '@/components/dashboard/pages/reports/ReportFilterTags.vue'
 import DateRangeField from '@/components/shared/ui/DateRangeField.vue'
 
@@ -46,6 +47,11 @@ const { data: tabCounts } = useReportAggregate(
 )
 
 const { data: locationsData } = useReportAggregate(() => ({ 'aggregate[location:unique]': '' }))
+
+/** Candidate users for the member filter - GET /user, gated to developers and hidden on 403. */
+const { data: membersData, error: membersError } = useMemberCandidates({
+    enabled: () => store.auth.user?.isDeveloper === true,
+})
 
 // Computed
 const rows = computed<DashboardReportRow[]>(() => listData.value?.data ?? [])
@@ -92,8 +98,22 @@ const reportedBy = computed({
     set: (v) => { store.report.filter.userId = v === 'all' ? null : v },
 })
 
+const memberItems = computed(() => (membersData.value?.data ?? []).map(user => ({ label: user.name ?? user.id, value: user.id })))
+
+const memberLookup = computed(() => (membersData.value?.data ?? []).map(user => ({ id: user.id, name: user.name ?? user.id })))
+
+const memberIds = computed({
+    get: () => store.report.filter.memberIds,
+    set: (value: string[] | undefined) => { store.report.filter.memberIds = value ?? [] },
+})
+
+const memberFilterDenied = computed(() => (membersError.value as { status?: number } | null)?.status === 403)
+
+const showMemberFilter = computed(() => store.auth.user?.isDeveloper === true && !memberFilterDenied.value)
+
 const hasAdvancedFilters = computed(() =>
     store.report.filter.mine || store.report.filter.hasMedia || store.report.filter.hasComments
+    || store.report.filter.assignedToMe || store.report.filter.memberIds.length > 0
     || !!store.report.filter.userId || !!store.report.filter.dateFrom || !!store.report.filter.dateTo
     || !!store.report.filter.location,
 )
@@ -126,6 +146,7 @@ const {
     resetSource: () => [
         store.report.filter.statusGroup, store.report.filter.search, store.report.filter.mine,
         store.report.filter.hasMedia, store.report.filter.hasComments, store.report.filter.userId,
+        store.report.filter.assignedToMe, store.report.filter.memberIds,
         store.report.filter.dateFrom, store.report.filter.dateTo, store.report.filter.location,
         store.report.sort, store.report.dir,
     ],
@@ -153,7 +174,17 @@ const columns: TableColumn<DashboardReportRow>[] = [
          */
         accessorKey: 'title',
         header: 'Report',
-        cell: ({ row }) => h('span', { class: 'font-medium text-highlighted' }, row.original.title),
+        cell: ({ row }) => h('div', { class: 'flex items-center gap-2' }, [
+            h('span', { class: 'font-medium text-highlighted' }, row.original.title),
+            (row.original.members_count ?? 0) > 0
+                ? h(UBadge, {
+                    variant: 'subtle',
+                    color: 'neutral',
+                    size: 'sm',
+                    leadingIcon: 'i-lucide-users',
+                }, () => String(row.original.members_count))
+                : null,
+        ]),
     },
     {
         accessorKey: 'location',
@@ -219,10 +250,14 @@ const columns: TableColumn<DashboardReportRow>[] = [
                         <template #content>
                             <div class="flex flex-col gap-3 p-3">
                                 <USwitch v-model="store.report.filter.mine" label="Only mine" />
+                                <USwitch v-model="store.report.filter.assignedToMe" label="Assigned to me" />
                                 <USwitch v-model="store.report.filter.hasMedia" label="Has media" />
                                 <USwitch v-model="store.report.filter.hasComments" label="Has comments" />
                                 <UFormField label="Reported by">
                                     <USelectMenu v-model="reportedBy" :items="authorItems" value-key="value" class="w-full" />
+                                </UFormField>
+                                <UFormField v-if="showMemberFilter" label="Member">
+                                    <USelectMenu v-model="memberIds" :items="memberItems" value-key="value" multiple placeholder="Anyone" class="w-full" />
                                 </UFormField>
                                 <UFormField label="Page URL">
                                     <USelectMenu v-model="selectedLocation" :items="locationItems" value-key="value" class="w-full" />
@@ -245,7 +280,7 @@ const columns: TableColumn<DashboardReportRow>[] = [
             </UDashboardNavbar>
         </template>
         <template #body>
-            <ReportFilterTags :authors="authors" />
+            <ReportFilterTags :authors="authors" :members="memberLookup" />
 
             <div :ref="(el) => { tableWrapper = el as HTMLElement | null }" tabindex="0" class="flex min-h-0 flex-1 flex-col outline-none" @keydown="onKeydown">
                 <UTable

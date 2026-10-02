@@ -10,9 +10,12 @@ import { usePinAnchor } from '@/composables/usePinAnchor'
 import { getPinCoordinates } from '@/core/pin'
 import { isHtmlEmpty } from '@/core/text'
 import { pageToViewport, pinToElementPixels, pinToPagePixels } from '@/domain/pin'
-import { useCreateReport } from '@/resources/report/mutations'
+import { memberMutationError, useAddMembersMutation, useCreateReport } from '@/resources/report/mutations'
+import { memberFromUser, type Member } from '@/resources/report/model'
+import { useMemberCandidates } from '@/resources/user/queries'
 import { ScreenshotCapture } from '@/core/capture/screenshot'
 import Editor from '@/components/shared/ui/Editor.vue'
+import MembersPicker from '@/components/shared/report/MembersPicker.vue'
 import {
     commandsSuggestionItems,
     insertsSuggestionItems,
@@ -30,8 +33,13 @@ const submitting = ref(false)
 const thumbnailUrl = ref('')
 const screenshotCapture = shallowRef<ScreenshotCapture>(new ScreenshotCapture())
 const createReport = useCreateReport()
+const addMembers = useAddMembersMutation()
 const scrollTick = ref(0)
 const isPasting = ref(false)
+// Draft member selection - kept local, only persisted after the report exists.
+const selectedMemberIds = ref<string[]>([])
+const isMembersOpen = ref(false)
+const { data: candidatesData } = useMemberCandidates({ enabled: () => !!store.auth.user })
 
 const customHandlers = {
     /**
@@ -80,6 +88,33 @@ const suggestionItems = computed<EditorSuggestionMenuItem[][]>(() => {
 })
 
 const isBodyFilled = computed(() => !isHtmlEmpty(body.value))
+
+const selfMember = computed<Member | null>(() => {
+    const user = store.auth.user
+    return user ? memberFromUser({ id: user.id, name: user.name }) : null
+})
+
+/** Candidate query is lazy and 403s for non-admins; fall back to self so "Assign to me" stays available. */
+const candidatePool = computed<Member[]>(() => {
+    const rows = candidatesData.value?.data
+    if (rows?.length) return rows.map(memberFromUser)
+    return selfMember.value ? [selfMember.value] : []
+})
+
+const draftMembers = computed<Member[]>(() => {
+    const pool = new Map<string, Member>()
+    if (selfMember.value) pool.set(selfMember.value.id, selfMember.value)
+    for (const member of candidatePool.value) pool.set(member.id, member)
+    return selectedMemberIds.value
+        .map(id => pool.get(id))
+        .filter((member): member is Member => !!member)
+})
+
+const draftCandidates = computed(() =>
+    candidatePool.value.filter(member => !selectedMemberIds.value.includes(member.id)),
+)
+
+const showMembers = computed(() => !!store.auth.user)
 
 const open = computed({
     get: () => !!store.report.pending,
@@ -149,12 +184,26 @@ async function onSubmit() {
                 return null
             })
             : null
-        await createReport.mutateAsync({
+        const saved = await createReport.mutateAsync({
             body: body.value,
             pin: store.report.pending?.pin ?? null,
             element: store.report.pending?.element ?? null,
             screenshot,
         })
+        if (selectedMemberIds.value.length) {
+            /**
+             * Membership is non-fatal to the report: the report is already saved,
+             * so a failed assignment warns instead of failing the submit.
+             */
+            try {
+                await addMembers.mutateAsync({ id: saved.id, userIds: selectedMemberIds.value })
+            } catch (error) {
+                toast.add({
+                    title: memberMutationError(error, 'Report saved, but members could not be assigned'),
+                    color: 'error',
+                })
+            }
+        }
         toast.add({ title: 'Report submitted', color: 'success' })
         store.report.pending = null
         store.loadReports()
@@ -207,10 +256,22 @@ function handleImagePaste(file: File): boolean {
     return true
 }
 
+function addDraftMember(member: Member) {
+    if (!selectedMemberIds.value.includes(member.id)) {
+        selectedMemberIds.value = [...selectedMemberIds.value, member.id]
+    }
+}
+
+function removeDraftMember(member: Member) {
+    selectedMemberIds.value = selectedMemberIds.value.filter(id => id !== member.id)
+}
+
 function _enter() {
     body.value = ''
     thumbnailUrl.value = ''
     screenshotCapture.value = new ScreenshotCapture()
+    selectedMemberIds.value = []
+    isMembersOpen.value = false
 }
 
 function _onPendingScroll() {
@@ -232,6 +293,7 @@ function _onPendingScroll() {
         v-model:open="open"
         :reference="reference"
         :content="{ side, align: 'start', sideOffset: 12 }"
+        :dismissible="!isMembersOpen"
         :ui="{ content: 'w-80' }"
         data-component="create-report"
     >
@@ -285,9 +347,67 @@ function _onPendingScroll() {
                                 <img
                                     :src="thumbnailUrl"
                                     alt="Screenshot"
-                                    class="rounded-xl object-cover border border-default aspect-square h-6.5 -translate-x-3" />
+                                    class="rounded-xl object-cover border border-default aspect-square h-6.5 -translate-x-3 -mr-3" />
                             </div>
                         </template>
+
+                        <UPopover
+                            v-if="showMembers"
+                            v-model:open="isMembersOpen"
+                            :content="{ side: 'top', align: 'start' }"
+                            arrow
+                        >
+                            <UTooltip text="Members" arrow>
+                                <UButton
+                                    color="neutral"
+                                    variant="ghost"
+                                    size="sm"
+                                    square
+                                    aria-label="Members"
+                                    :ui="{ base: 'rounded-full' }"
+                                >
+                                    <UAvatarGroup
+                                        v-if="draftMembers.length"
+                                        size="2xs"
+                                        :max="3"
+                                        :ui="{ base: 'ring-muted bg-muted' }"
+                                    >
+                                        <UAvatar
+                                            v-for="member in draftMembers"
+                                            :key="member.id"
+                                            :alt="member.name"
+                                            :ui="{ fallback: 'text-neutral' }"
+                                        />
+                                    </UAvatarGroup>
+                                    <UIcon
+                                        v-else
+                                        name="i-lucide-user-round-plus"
+                                        class="size-4"
+                                    />
+                                </UButton>
+                            </UTooltip>
+                            <template #content="{ close }">
+                                <MembersPicker
+                                    :members="draftMembers"
+                                    :candidates="draftCandidates"
+                                    :can-edit="true"
+                                    @add="addDraftMember"
+                                    @remove="removeDraftMember"
+                                >
+                                    <template #close>
+                                        <UButton
+                                            icon="i-lucide-x"
+                                            color="neutral"
+                                            variant="ghost"
+                                            size="xs"
+                                            square
+                                            aria-label="Close members"
+                                            @click="close"
+                                        />
+                                    </template>
+                                </MembersPicker>
+                            </template>
+                        </UPopover>
 
                     </div>
                     <UButton

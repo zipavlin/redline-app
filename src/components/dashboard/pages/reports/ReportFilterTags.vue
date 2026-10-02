@@ -10,6 +10,7 @@ import type { DashboardStore } from '@/store/dashboard'
 
 const props = defineProps<{
     authors: { id: string; name: string }[]
+    members: { id: string; name: string }[]
 }>()
 
 const store = useStore<DashboardStore>()
@@ -18,6 +19,8 @@ interface Tag { key: string; label: string; clear: () => void }
 
 // Computed
 const authorName = computed(() => props.authors.find(a => a.id === store.report.filter.userId)?.name ?? 'Unknown')
+
+const memberName = (id: string) => props.members.find(member => member.id === id)?.name ?? 'Unknown'
 
 const dateLabel = computed(() => {
     const from = store.report.filter.dateFrom
@@ -36,6 +39,24 @@ const tags = computed<Tag[]>(() => {
             label: 'Only mine',
             clear: () => {
                 store.report.filter.mine = false
+            },
+        })
+    }
+    if (store.report.filter.assignedToMe) {
+        t.push({
+            key: 'assigned-to-me',
+            label: 'Assigned to me',
+            clear: () => {
+                store.report.filter.assignedToMe = false
+            },
+        })
+    }
+    for (const id of store.report.filter.memberIds) {
+        t.push({
+            key: `member-${id}`,
+            label: `Member: ${memberName(id)}`,
+            clear: () => {
+                store.report.filter.memberIds = store.report.filter.memberIds.filter(memberId => memberId !== id)
             },
         })
     }
@@ -97,6 +118,8 @@ function fmtDate(iso: string | null): string {
 
 function clearAll() {
     store.report.filter.mine = false
+    store.report.filter.assignedToMe = false
+    store.report.filter.memberIds = []
     store.report.filter.hasMedia = false
     store.report.filter.hasComments = false
     store.report.filter.userId = null

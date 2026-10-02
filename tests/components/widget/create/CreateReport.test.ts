@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { nextTick } from 'vue'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 
@@ -23,6 +24,32 @@ vi.mock('@nuxt/ui/components/ChatPrompt.vue', () => ({
 }))
 vi.mock('@nuxt/ui/components/Button.vue', () => ({
     default: { name: 'UButtonStub', template: '<button class="u-button-stub"><slot /></button>' },
+}))
+vi.mock('@nuxt/ui/components/Tooltip.vue', () => ({
+    default: { name: 'UTooltipStub', template: '<span class="u-tooltip-stub"><slot /></span>' },
+}))
+vi.mock('@nuxt/ui/components/AvatarGroup.vue', () => ({
+    default: { name: 'UAvatarGroupStub', props: ['size', 'max'], template: '<span class="u-avatar-group"><slot /></span>' },
+}))
+vi.mock('@nuxt/ui/components/Avatar.vue', () => ({
+    default: { name: 'UAvatarStub', props: ['alt', 'icon', 'size', 'ui'], template: '<span class="u-avatar" :data-icon="icon">{{ alt }}</span>' },
+}))
+vi.mock('@/components/shared/report/MembersPicker.vue', () => ({
+    default: {
+        name: 'MembersPickerStub',
+        props: ['members', 'candidates', 'canEdit', 'loading'],
+        emits: ['add', 'remove'],
+        template: `
+            <div class="members-picker-stub">
+                <button
+                    v-for="candidate in candidates"
+                    :key="candidate.id"
+                    class="mp-add"
+                    :data-id="candidate.id"
+                    @click="$emit('add', candidate)"
+                >{{ candidate.name }}</button>
+            </div>`,
+    },
 }))
 
 /**
@@ -68,9 +95,9 @@ function stubCanvas() {
     })
 }
 
-function makeStore(features: string[] = ['screenshots']) {
+function makeStore(features: string[] = ['screenshots'], user: unknown = null) {
     return {
-        auth: { user: null, callback: null, authView: 'login' },
+        auth: { user, callback: null, authView: 'login' },
         settings: { position: 'bottom-right', theme: 'light', expanded: false },
         report: {
             pending: { pin: { x: 50, y: 50 }, element: null },
@@ -88,16 +115,19 @@ function makeStore(features: string[] = ['screenshots']) {
     }
 }
 
-function mountReport(features: string[] = ['screenshots']) {
+function mountReport(
+    features: string[] = ['screenshots'],
+    opts: { user?: unknown; api?: Record<string, unknown> } = {},
+) {
     const queryClient = new QueryClient({
         defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     })
-    const store = makeStore(features)
+    const store = makeStore(features, opts.user ?? null)
     const wrapper = mount(CreateReport, {
         global: {
             plugins: [[VueQueryPlugin, { queryClient }]],
             provide: {
-                redline: { api: {}, config: {} },
+                redline: { api: opts.api ?? {}, config: {} },
                 store,
             },
         },
@@ -191,5 +221,96 @@ describe('CreateReport clipboard image paste', () => {
         await flushPromises()
         expect(wrapper!.find('img').exists()).toBe(false)
         expect(toastAdd).toHaveBeenCalledWith({ title: 'Screenshot failed', color: 'error' })
+    })
+})
+
+const memberUser = { id: 'me', name: 'Me Myself', role: 'reporter', isDeveloper: false, isAdmin: false }
+
+function membersApi() {
+    return {
+        report: {
+            store: vi.fn().mockResolvedValue({ ok: true, status: 200, data: { id: 'r1', status: 'new', created_at: '2026-01-01T00:00:00Z' } }),
+            addMembers: vi.fn().mockResolvedValue({ ok: true, status: 200, data: { members: [] } }),
+        },
+        user: {
+            index: vi.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                data: {
+                    data: [{ id: 'u2', status: 'approved', created_at: '2026-01-01T00:00:00Z', name: 'Zoe Dev', initials: 'ZD' }],
+                    meta: { total: 1 },
+                    counts: { all: 1, active: 1, pending: 0 },
+                },
+            }),
+        },
+    }
+}
+
+function mountComposerWithMembers() {
+    const api = membersApi()
+    const mounted = mountReport(['screenshots'], { user: memberUser, api })
+    return { ...mounted, api }
+}
+
+async function submitComposer(w: VueWrapper, withMember: boolean) {
+    await flushPromises()
+    if (withMember) {
+        await w.find('.mp-add[data-id="u2"]').trigger('click')
+        await nextTick()
+    }
+    w.findComponent({ name: 'EditorStub' }).vm.$emit('update:modelValue', '<p>hi</p>')
+    await nextTick()
+    const submit = w.findAll('button').find(button => button.text().includes('Submit'))
+    await submit!.trigger('click')
+    await flushPromises()
+}
+
+describe('CreateReport member assignment', () => {
+    it('assigns the selected members after the report is created', async () => {
+        stubCanvas()
+        const mounted = mountComposerWithMembers()
+        wrapper = mounted.wrapper
+
+        await submitComposer(mounted.wrapper, true)
+
+        expect(mounted.api.report.store).toHaveBeenCalledTimes(1)
+        expect(mounted.api.report.addMembers).toHaveBeenCalledWith('r1', ['u2'])
+        expect(mounted.store.report.pending).toBeNull()
+        expect(toastAdd).toHaveBeenCalledWith({ title: 'Report submitted', color: 'success' })
+    })
+
+    it('keeps the report success path when the assignment fails', async () => {
+        stubCanvas()
+        const mounted = mountComposerWithMembers()
+        wrapper = mounted.wrapper
+        mounted.api.report.addMembers.mockResolvedValue({
+            ok: false,
+            status: 422,
+            data: { message: 'One or more user ids are unknown.' },
+        })
+
+        await submitComposer(mounted.wrapper, true)
+
+        expect(mounted.api.report.store).toHaveBeenCalledTimes(1)
+        expect(toastAdd).toHaveBeenCalledWith({ title: 'One or more user ids are unknown.', color: 'error' })
+        expect(toastAdd).toHaveBeenCalledWith({ title: 'Report submitted', color: 'success' })
+    })
+
+    it('does not call the member endpoint when nothing is selected', async () => {
+        stubCanvas()
+        const mounted = mountComposerWithMembers()
+        wrapper = mounted.wrapper
+
+        await submitComposer(mounted.wrapper, false)
+
+        expect(mounted.api.report.addMembers).not.toHaveBeenCalled()
+        expect(mounted.api.report.store).toHaveBeenCalledTimes(1)
+    })
+
+    it('hides the members control for guests', () => {
+        stubCanvas()
+        wrapper = mountReport(['screenshots']).wrapper
+
+        expect(wrapper.find('.members-picker-stub').exists()).toBe(false)
     })
 })

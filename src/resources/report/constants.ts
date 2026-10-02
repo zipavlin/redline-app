@@ -6,19 +6,19 @@ export const WIDGET_LIST_INCLUDE: ListParams = {
 }
 
 export const WIDGET_DETAIL_INCLUDE: ListParams = {
-    'include[]': ['pin', 'element', 'title', 'body', 'browser', 'comments', 'location', 'url'],
+    'include[]': ['pin', 'element', 'title', 'body', 'browser', 'comments', 'location', 'url', 'members'],
     'include[author]': 'id,name',
     'include[screenshot]': 'url',
     'include[video]': 'url',
 }
 
 export const DASHBOARD_LIST_INCLUDE: ListParams = {
-    'include[]': ['title', 'url', 'location'],
+    'include[]': ['title', 'url', 'location', 'members:count'],
     'include[author]': 'id,name,email',
 }
 
 export const DASHBOARD_DETAIL_INCLUDE: ListParams = {
-    'include[]': ['title', 'body', 'browser', 'comments', 'location', 'url'],
+    'include[]': ['title', 'body', 'browser', 'comments', 'location', 'url', 'members'],
     'include[author]': 'id,name,email',
     'include[screenshot]': 'url',
     'include[video]': 'url',

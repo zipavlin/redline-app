@@ -82,7 +82,7 @@ export class ApiClient {
     patch<T = unknown>(path: string, body?: unknown): Promise<ApiResult<T>> {
         return this.request<T>('PATCH', path, { body })
     }
-    delete<T = unknown>(path: string): Promise<ApiResult<T>> {
-        return this.request<T>('DELETE', path)
+    delete<T = unknown>(path: string, body?: unknown): Promise<ApiResult<T>> {
+        return this.request<T>('DELETE', path, { body })
     }
 }

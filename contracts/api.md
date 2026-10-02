@@ -145,12 +145,13 @@ never serialized.
 
 ---
 
-## 3. Users - admin only (`403 { "message": "Admin access required." }` otherwise)
+## 3. Users - admin only, except `GET /user` LIST (`403 { "message": "Admin access required." }` otherwise)
 
-### GET /user - cookie | bearer (admin)
-Grammar: `filter[]` `include[]` `sort[]` `paginate[]` (schema below).
-Base row is `id`, `status`, `created_at`; `name`, `email`, `role`,
-`reports_count`, `comments_count`, `stats` are include-gated.
+### GET /user - cookie | bearer (any authenticated)
+Open to any authenticated user for member picking (see `auth.md`). Grammar:
+`filter[]` `include[]` `sort[]` `paginate[]` (schema below). Base row is `id`,
+`status`, `created_at`; `name`, `email`, `role`, `reports_count`,
+`comments_count`, `stats` are include-gated.
 
 Schema:
 - filters: `search` (like, OR name/email), `name` (string ops), `email`

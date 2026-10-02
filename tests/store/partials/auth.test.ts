@@ -149,19 +149,30 @@ describe('authSlice', () => {
         expect(sessionStorage.getItem('redline_cloud_token')).toBeNull()
     })
 
-    it('skips the session check when the token is already verified this session', async () => {
+    it('checks the session but skips the remembered refresh when already verified this tab', async () => {
         sessionStorage.setItem('redline_session_verified', '1')
+        seedCachedUser({ redline_remember_me: '1' })
         const redline = createRedline()
+        redline.api.auth.me.mockResolvedValue(ME_OK())
 
         authSlice(redline)
-        /**
-         * _initAuth is scheduled via vue's nextTick; flush the scheduler, then
-         * drain microtasks before asserting it skipped the call.
-         */
-        await nextTick()
+        await vi.waitFor(() => expect(redline.api.auth.me).toHaveBeenCalledTimes(1))
         await drainPromises()
 
-        expect(redline.api.auth.me).not.toHaveBeenCalled()
+        // A verified flag no longer skips /auth/me; it only throttles the refresh.
+        expect(redline.api.auth.refresh).not.toHaveBeenCalled()
+    })
+
+    it('sets the user from the session check when already verified without remember-me', async () => {
+        sessionStorage.setItem('redline_session_verified', '1')
+        const redline = createRedline()
+        redline.api.auth.me.mockResolvedValue(ME_OK())
+
+        const { auth } = authSlice(redline)
+        await vi.waitFor(() => expect(auth.user).not.toBeNull())
+
+        expect(redline.api.auth.me).toHaveBeenCalledTimes(1)
+        expect(redline.api.auth.refresh).not.toHaveBeenCalled()
     })
 
     it('does not refresh when remember-me is off', async () => {

@@ -539,6 +539,17 @@ describe('useWidgetStore', () => {
         expect(redline.api.report.list.mock.calls.length).toBe(listCalls)
     })
 
+    it('re-fires the unresolved count when the user identity changes', async () => {
+        seedCachedUser({ redline_id: 'u1' })
+        const redline = createRedline()
+        const { store } = mountWidgetStore(redline)
+
+        await vi.waitFor(() => expect(redline.api.report.aggregate).toHaveBeenCalledTimes(1))
+
+        store.activateSession({ id: 'u2', name: 'Bob', email: 'bob@example.com', role: 'reporter' })
+        await vi.waitFor(() => expect(redline.api.report.aggregate).toHaveBeenCalledTimes(2))
+    })
+
     // Refresh unresolved count.
 
     it('updates unresolvedCount from the aggregate response', async () => {

@@ -65,7 +65,7 @@ comment store/update, media uploads, and **every grammar 422**:
 { "message": "Unauthenticated." }              // 401 - missing token / token_version mismatch
 { "message": "Invalid or expired token." }     // 401 - bad signature / expired
 { "message": "Forbidden." }                    // 403 - policy gate (checkUser)
-{ "message": "Admin access required." }        // 403 - non-admin on /user
+{ "message": "Admin access required." }        // 403 - non-admin on /user* (LIST excepted)
 { "message": "Feature disabled." }             // 403 - disabled feature endpoint
 { "message": "Invalid status transition." }    // 403 - status lifecycle/role rule
 { "message": "Forbidden origin." }             // 403 - guest origin not allowed / cookie-Origin mismatch

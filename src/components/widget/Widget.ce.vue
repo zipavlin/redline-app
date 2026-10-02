@@ -198,8 +198,6 @@ function _onResize() {
 onMounted(() => {
     store.capabilities.capture = canCapture()
 
-    store.refreshUnresolvedCount()
-
     window.addEventListener('resize', _onResize)
 
     // Keyboard shortcuts (Alt+C pin, Alt+V video, Alt+S annotation, Escape exits).

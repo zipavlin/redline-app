@@ -139,12 +139,19 @@ only `CREATE` reports. Rules:
 
 | Operation | Who |
 |---|---|
-| `LIST` / `VIEW` | any authenticated user (users endpoints additionally require admin) |
+| `LIST` / `VIEW` | any authenticated user |
 | `CREATE` | any authenticated (guest allowed only in guest mode for reports) |
 | `EDIT` (body updates) | **author only** - developers/admins cannot rewrite others' bodies |
 | `DELETE` | owner **or** admin |
 | `UPDATE` (status / pin move / media attach) | developer+ (admin counts) **or** owner |
-| user management (`/user*`) | **admin only** (403 `"Admin access required."`) |
+| user management (`/user*`) | **admin only** (403 `"Admin access required."`) - **except `GET /user` (LIST)**, open to any authenticated user |
+
+`GET /user` (LIST) is deliberately open to any authenticated user so the widget
+member picker can assign reporters/developers; the base row is only
+`id`/`status`/`created_at` and PII such as `email` is returned only when
+explicitly requested via `include[]`, so relaxing LIST leaks nothing by default.
+All other user endpoints (VIEW `/user/{user}`, `/user/aggregate`,
+store/update/destroy/approve/reset-password) stay admin-only.
 
 Pending users are blocked from everything; guests are blocked from everything
 except creating reports in guest mode. Status transitions additionally follow

@@ -27,9 +27,12 @@ implementation - never invented from a design doc.
   payload: `GET /{api}/bootstrap` returns `"version": 1`.
 - **Minor (1.x-style, contract-compatible)**: additive changes only - new
   optional request fields, new include targets, new filters, new endpoints
-  that the frontend can ignore. Backends may ship these independently.
+  that the frontend can ignore - plus **relaxed access gates** (letting more
+  callers use an existing endpoint, e.g. opening a LIST to any authenticated
+  user). Backends may ship these independently.
 - **Major (2.0)**: any breaking change - renamed/removed fields, changed
-  status codes or envelopes, altered auth semantics, removed endpoints.
+  status codes or envelopes, a **tightened** access gate or otherwise altered
+  auth semantics that break an existing conforming caller, removed endpoints.
   Major versions require **coordinated releases across the backend and the
   frontend**, and the bootstrap `version` integer is bumped.
 - The current frontend does **not yet compare** the bootstrap `version` to a

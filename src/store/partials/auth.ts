@@ -45,30 +45,21 @@ export function authSlice(redline: RedlineContext) {
     }
 
     // Functions
-    // Async session check - skipped when already verified this browser session.
+    /**
+     * Async session check - always runs on mount, so a cached user alone can
+     * never fake an authenticated session when the cookie has died. The
+     * remember-me refresh stays throttled to once per tab (the verified flag
+     * now means "refresh already done this tab"); GET /auth/me itself is cheap
+     * and restores trust in the cached identity.
+     */
     async function _initAuth() {
-        if (identity.isTokenVerified()) return
-
         try {
             const result = await redline.api.auth.me()
             if (result.ok && result.data?.user) {
                 sessionStatus = 'active'
                 const user = result.data.user
                 auth.user = toAuthUser(user)
-
-                if (identity.isRememberMe()) {
-                    try {
-                        const refreshResult = await redline.api.auth.refresh()
-                        /**
-                         * Cloud mode returns a fresh access token; local cookie mode
-                         * returns none - pass it through only when present.
-                         */
-                        if (refreshResult.ok && refreshResult.data?.token) {
-                            identity.saveUser(user.name, user.email, user.role, refreshResult.data.token, user.id)
-                        }
-                    } catch { /** Keep the current session on network failure */ }
-                }
-
+                await _refreshRememberedSession(user)
                 identity.markTokenVerified()
             } else if (result.status === 401) {
                 identity.clearUser()
@@ -80,6 +71,22 @@ export function authSlice(redline: RedlineContext) {
         } catch { /** Keep cached state on network failure - do not mark verified */ }
     }
     nextTick(_initAuth)
+
+    /**
+     * Refresh a remember-me session once per tab and persist any fresh access
+     * token. Cloud mode returns one; local cookie mode returns none, so it is
+     * passed through only when present. Called before the verified flag is set,
+     * so a second mount in the same tab skips this.
+     */
+    async function _refreshRememberedSession(user: AuthUser) {
+        if (!identity.isRememberMe() || identity.isTokenVerified()) return
+        try {
+            const refreshResult = await redline.api.auth.refresh()
+            if (refreshResult.ok && refreshResult.data?.token) {
+                identity.saveUser(user.name, user.email, user.role, refreshResult.data.token, user.id)
+            }
+        } catch { /** Keep the current session on network failure */ }
+    }
 
     /**
      * Host-session mode: exchange the host application session for a redline

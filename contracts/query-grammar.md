@@ -72,7 +72,7 @@ are per-resource; a disallowed operator 422s with a message naming the target.
   delegate to the **related resource's own schema** (security boundary), and
   the delegating resource controls which related attributes are reachable via
   `relatedFilters` - `filter[author.email:like]` on /report 422s even though
-  the admin /user endpoint can filter email.
+  the /user endpoint can filter email (any authenticated caller - see `auth.md`).
 - **Status groups vs concrete statuses** (report): `filter[status]` accepts a
   *group* or a *concrete* value -
   - `unresolved` → every open status (`new`, `noticed`, `progress`)

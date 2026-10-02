@@ -60,16 +60,32 @@ export const useWidgetStore = defineStore('redline-widget', () => {
         else unloadReports()
     })
 
-    let _urlHandled = false
+    /**
+     * Re-run when the user IDENTITY changes, not on every reactive touch: the
+     * cached user is restored first and the host-session exchange may replace
+     * it, and the second identity must re-fire the count + panel load. Deep
+     * links stay one-shot via `_deepLinkHandled`, independent of identity.
+     */
+    let _deepLinkHandled = false
+    let _lastIdentity: string | null | undefined = undefined
     watch(() => auth.user, async user => {
-        if (!user || _urlHandled) return
-        _urlHandled = true
+        const identityKey = user ? (user.id ?? user.email) : null
+        if (identityKey === _lastIdentity) return
+        _lastIdentity = identityKey
+        if (!user) return
+
         refreshUnresolvedCount()
+
         const params = new URLSearchParams(location.search)
         const urlFilter = params.get('redline-filter')
         const urlReport = params.get('redline-report')
-        if (urlFilter && URL_FILTER_KEYS.includes(urlFilter)) await loadReports(urlFilter)
-        if (urlReport) await focusReport(urlReport)
+
+        if (!_deepLinkHandled) {
+            _deepLinkHandled = true
+            if (urlFilter && URL_FILTER_KEYS.includes(urlFilter)) await loadReports(urlFilter)
+            if (urlReport) await focusReport(urlReport)
+        }
+
         if (!urlFilter && !urlReport && settings.expanded) await loadReports('unresolved')
     }, { immediate: true })
 

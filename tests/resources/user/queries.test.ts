@@ -3,7 +3,7 @@ import { defineComponent, ref } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { VueQueryPlugin } from '@tanstack/vue-query'
 import { userKeys } from '@/resources/user/keys'
-import { useUserList, useUserTabCounts, useMemberCandidates } from '@/resources/user/queries'
+import { useUserList, useUserTabCounts, useMemberCandidates, useUserMentionSearch } from '@/resources/user/queries'
 import type { ApiResult } from '@/core/api/types'
 import type { ListParams } from '@/core/api/params'
 import type { UserListResponse } from '@/resources/user/model'
@@ -279,5 +279,87 @@ describe('useUserTabCounts', () => {
         await vi.advanceTimersByTimeAsync(50)
         expect(api.user.aggregate).toHaveBeenCalledTimes(2)
         expect(result.data.value).toEqual({ all: 1, active: 1, pending: 0 })
+    })
+})
+
+describe('useUserMentionSearch', () => {
+    it('debounces rapid calls into one candidate-search request', async () => {
+        vi.useFakeTimers()
+        const fixture = userListFixture()
+        const { api, result } = mountResource(
+            () => useUserMentionSearch(),
+            makeApi,
+            (api) => api.user.index.mockResolvedValue({ ok: true, status: 200, data: fixture }),
+        )
+
+        const superseded = result('a')
+        const latest = result('ab')
+        await vi.advanceTimersByTimeAsync(100)
+        expect(api.user.index).not.toHaveBeenCalled()
+
+        await vi.advanceTimersByTimeAsync(150)
+        expect(api.user.index).toHaveBeenCalledTimes(1)
+        expect(api.user.index).toHaveBeenCalledWith({
+            'filter[status]': 'approved',
+            'filter[role:in]': 'reporter,developer,admin',
+            'include[]': ['name', 'initials'],
+            'sort[name]': 'asc',
+            'filter[search]': 'ab',
+        })
+        await expect(superseded).resolves.toEqual([])
+        await expect(latest).resolves.toEqual(fixture.data)
+    })
+
+    it('drops a stale in-flight response when a newer search starts', async () => {
+        vi.useFakeTimers()
+        const slow = deferred<ApiResult<UserListResponse>>()
+        const fast = deferred<ApiResult<UserListResponse>>()
+        const { api, result } = mountResource(
+            () => useUserMentionSearch(),
+            makeApi,
+            (api) => { api.user.index.mockReturnValueOnce(slow.promise).mockReturnValueOnce(fast.promise) },
+        )
+
+        const stale = result('ada')
+        await vi.advanceTimersByTimeAsync(250)
+        expect(api.user.index).toHaveBeenCalledTimes(1)
+
+        const current = result('bob')
+        await vi.advanceTimersByTimeAsync(250)
+        expect(api.user.index).toHaveBeenCalledTimes(2)
+
+        slow.resolve({ ok: true, status: 200, data: userListFixture() })
+        await flushPromises()
+        await expect(stale).resolves.toEqual([])
+
+        fast.resolve({ ok: true, status: 200, data: userListFixture() })
+        await flushPromises()
+        await expect(current).resolves.toEqual(userListFixture().data)
+    })
+
+    it('resolves [] when the response is not ok', async () => {
+        vi.useFakeTimers()
+        const { result } = mountResource(
+            () => useUserMentionSearch(),
+            makeApi,
+            (api) => api.user.index.mockResolvedValue({ ok: false, status: 403, data: null }),
+        )
+
+        const promise = result('ada')
+        await vi.advanceTimersByTimeAsync(250)
+        await expect(promise).resolves.toEqual([])
+    })
+
+    it('resolves [] when the request throws', async () => {
+        vi.useFakeTimers()
+        const { result } = mountResource(
+            () => useUserMentionSearch(),
+            makeApi,
+            (api) => api.user.index.mockRejectedValue(new Error('network down')),
+        )
+
+        const promise = result('ada')
+        await vi.advanceTimersByTimeAsync(250)
+        await expect(promise).resolves.toEqual([])
     })
 })

@@ -5,6 +5,7 @@ import type { WidgetStore } from '@/store/widget'
 import type { SelectedReport } from '@/store/widget/selection'
 import { useAddCommentMutation } from '@/resources/comment/mutations'
 import { useComments } from '@/resources/comment/queries'
+import { useMentionMemberSync } from '@/resources/report/mentions'
 import CommentForm from '@/components/shared/comment/CommentForm.vue'
 import CommentList from '@/components/shared/comment/CommentList.vue'
 import { useToast } from '@nuxt/ui/composables/useToast'
@@ -14,6 +15,7 @@ const store = useStore<WidgetStore>()
 const draft = ref('')
 const { data: comments } = useComments(props.report.id)
 const addComment = useAddCommentMutation()
+const { sync: syncMentions } = useMentionMemberSync()
 const toast = useToast()
 
 const user = computed(() => {
@@ -38,6 +40,7 @@ async function submitComment(body: string) {
     if (!id) return
     try {
         await addComment.mutateAsync({ reportId: id, body })
+        void syncMentions({ reportId: id, html: body })
         draft.value = ''
     } catch {
         toast.add({ title: 'Could not add comment', color: 'error' })

@@ -81,7 +81,14 @@ function mountList(user: CommentAuthContext | null, apiOverrides: { update?: () 
             props: { comments: [comment], reportId: 'r1', user },
             global: {
                 plugins: [[VueQueryPlugin, { queryClient }]],
-                provide: { redline: { api, config: {} } },
+                provide: {
+                    redline: { api, config: {} },
+                    store: {
+                        auth: { user: null, callback: null, authView: 'login' },
+                        activateSession: () => {},
+                        report: { active: null, list: [] },
+                    },
+                },
                 stubs: {
                     PopoverMenu: PopoverMenuStub,
                     Prose: ProseStub,

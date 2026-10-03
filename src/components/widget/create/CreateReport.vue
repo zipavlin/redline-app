@@ -8,7 +8,7 @@ import { useStore } from '@/composables/useStore'
 import type { WidgetStore } from '@/store/widget'
 import { usePinAnchor } from '@/composables/usePinAnchor'
 import { getPinCoordinates } from '@/core/pin'
-import { isHtmlEmpty } from '@/core/text'
+import { extractMentionUserIds, isHtmlEmpty } from '@/core/text'
 import { pageToViewport, pinToElementPixels, pinToPagePixels } from '@/domain/pin'
 import { memberMutationError, useAddMembersMutation, useCreateReport } from '@/resources/report/mutations'
 import { memberFromUser, type Member } from '@/resources/report/model'
@@ -190,13 +190,15 @@ async function onSubmit() {
             element: store.report.pending?.element ?? null,
             screenshot,
         })
-        if (selectedMemberIds.value.length) {
+        // Mentioned users join the explicitly picked ones (deduped) as members.
+        const userIds = [...new Set([...selectedMemberIds.value, ...extractMentionUserIds(body.value)])]
+        if (userIds.length) {
             /**
              * Membership is non-fatal to the report: the report is already saved,
              * so a failed assignment warns instead of failing the submit.
              */
             try {
-                await addMembers.mutateAsync({ id: saved.id, userIds: selectedMemberIds.value })
+                await addMembers.mutateAsync({ id: saved.id, userIds })
             } catch (error) {
                 toast.add({
                     title: memberMutationError(error, 'Report saved, but members could not be assigned'),

@@ -13,6 +13,7 @@ import { computed, ref } from 'vue'
 import type { Comment } from '@/resources/comment/model'
 import { getRelativeTime, getFormattedDatetime } from '@/core/datetime'
 import { useUpdateCommentMutation, useDeleteCommentMutation } from '@/resources/comment/mutations'
+import { useMentionMemberSync } from '@/resources/report/mentions'
 import { useConfirm } from '@/composables/useConfirm'
 import Prose from '@/components/shared/ui/Prose.vue'
 import InlineEditor from '@/components/shared/ui/InlineEditor.vue'
@@ -40,6 +41,7 @@ const toast = useToast()
 const { confirm } = useConfirm()
 const updateComment = useUpdateCommentMutation()
 const deleteComment = useDeleteCommentMutation()
+const { sync: syncMentions } = useMentionMemberSync()
 
 // State
 // Per-comment edit state - never block the whole thread with one flag.
@@ -100,6 +102,7 @@ async function saveEdit(id: string, body: string) {
     savingId.value = id
     try {
         await updateComment.mutateAsync({ reportId: props.reportId, id, body })
+        void syncMentions({ reportId: props.reportId, html: body })
         // The comment list refetches via invalidation - close the editor only on success.
         editingId.value = null
         toast.add({ title: 'Comment updated', color: 'success' })

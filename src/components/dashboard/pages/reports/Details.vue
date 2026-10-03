@@ -7,6 +7,7 @@ import type { DashboardStore } from '@/store/dashboard'
 import { useComments } from '@/resources/comment/queries'
 import { useAddCommentMutation } from '@/resources/comment/mutations'
 import { useUpdateReportBodyMutation, useDeleteReportMutation, useReportStatusMutation } from '@/resources/report/mutations'
+import { useMentionMemberSync } from '@/resources/report/mentions'
 import CommentForm from '@/components/shared/comment/CommentForm.vue'
 import CommentList from '@/components/shared/comment/CommentList.vue'
 import Prose from '@/components/shared/ui/Prose.vue'
@@ -34,6 +35,7 @@ const { data: commentsData } = useComments(() => store.report.active?.id ?? '')
 const updateBody = useUpdateReportBodyMutation()
 const deleteReport = useDeleteReportMutation()
 const statusMutation = useReportStatusMutation()
+const { sync: syncMentions } = useMentionMemberSync()
 
 // Computed
 // Auth context for comment actions + report body edit/delete gates.
@@ -84,6 +86,7 @@ async function saveBody(html: string) {
     if (updateBody.isPending.value || !id) return
     try {
         await updateBody.mutateAsync({ id, body: html })
+        void syncMentions({ reportId: id, html })
         isEditing.value = false
         toast.add({ title: 'Report updated', color: 'success' })
     } catch {
@@ -114,6 +117,7 @@ async function submitComment(body: string) {
     if (!id) return
     try {
         await addComment.mutateAsync({ reportId: id, body })
+        void syncMentions({ reportId: id, html: body })
         draft.value = ''
     } catch {
         toast.add({ title: 'Could not add comment', color: 'error' })

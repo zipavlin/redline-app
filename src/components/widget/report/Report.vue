@@ -12,6 +12,7 @@ import { usePinAnchor } from '@/composables/usePinAnchor'
 import { getFormattedDatetime, getRelativeTime } from '@/core/datetime'
 import { statusColor, type Status } from '@/domain/status'
 import { useUpdateReportBodyMutation } from '@/resources/report/mutations'
+import { useMentionMemberSync } from '@/resources/report/mentions'
 import type { SelectedReport } from '@/store/widget/selection'
 import type { WidgetStore } from '@/store/widget'
 import StatusChanger from '@/components/shared/ui/StatusChanger.vue'
@@ -46,6 +47,7 @@ const isMembersOpen = ref(false)
 const isEditing = ref(false)
 const isBodySaving = ref(false)
 const updateBody = useUpdateReportBodyMutation()
+const { sync: syncMentions } = useMentionMemberSync()
 
 /**
  * Close button, so we can land focus on it when the popover opens instead of
@@ -164,6 +166,7 @@ async function saveBody(html: string) {
     const id = store.report.active.id
     try {
         await updateBody.mutateAsync({ id, body: html })
+        void syncMentions({ reportId: id, html })
         isEditing.value = false
         toast.add({ title: 'Report updated', color: 'success' })
     } catch {

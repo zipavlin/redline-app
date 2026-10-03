@@ -1,9 +1,9 @@
-import { computed, toValue, type MaybeRefOrGetter } from 'vue'
+import { computed, getCurrentScope, onScopeDispose, toValue, type MaybeRefOrGetter } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import { useApi } from '@/composables/useApi'
 import { userKeys } from '@/resources/user/keys'
 import type { ListParams } from '@/core/api/params'
-import type { UserCounts, UserListResponse } from '@/resources/user/model'
+import type { UserCounts, UserListResponse, UserRow } from '@/resources/user/model'
 
 export function useUserList(params: MaybeRefOrGetter<ListParams>, opts?: {
     refetchInterval?: number
@@ -25,9 +25,9 @@ export function useUserList(params: MaybeRefOrGetter<ListParams>, opts?: {
 
 /**
  * Candidate users eligible for report membership: approved and non-guest. The
- * backend 422s pending/guest ids, so they are never offered. `GET /user` is
- * admin-only in contract v1 - callers degrade on a 403 that surfaces via
- * `error.status`.
+ * backend 422s pending/guest ids, so they are never offered. `GET /user` (LIST)
+ * is open to any authenticated user in contract v1; only the other /user
+ * endpoints are admin-only.
  */
 export const MEMBER_CANDIDATE_PARAMS: ListParams = {
     'filter[status]': 'approved',
@@ -38,6 +38,55 @@ export const MEMBER_CANDIDATE_PARAMS: ListParams = {
 
 export function useMemberCandidates(opts?: { enabled?: MaybeRefOrGetter<boolean> }) {
     return useUserList(MEMBER_CANDIDATE_PARAMS, { enabled: opts?.enabled })
+}
+
+/** Debounce for the mention autocomplete - short enough to feel live, long enough to coalesce keystrokes. */
+const MENTION_SEARCH_DEBOUNCE_MS = 250
+
+/**
+ * Debounced `GET /user` search for the mention autocomplete.
+ *
+ * Latest-wins: a newer call resolves the superseded caller with `[]`, cancels the
+ * pending timer, and invalidates any in-flight request via a token so a stale
+ * response can never overwrite the current results. Failures (non-ok or thrown)
+ * also resolve `[]` - the menu simply stays closed.
+ */
+export function useUserMentionSearch(): (query: string) => Promise<UserRow[]> {
+    const api = useApi()
+    let debounceTimer: ReturnType<typeof setTimeout> | undefined
+    let settle: ((rows: UserRow[]) => void) | undefined
+    let requestId = 0
+
+    function settlePending(rows: UserRow[]): void {
+        settle?.(rows)
+        settle = undefined
+    }
+
+    if (getCurrentScope()) {
+        onScopeDispose(() => {
+            if (debounceTimer) clearTimeout(debounceTimer)
+            settlePending([])
+            requestId++
+        })
+    }
+
+    return (query: string): Promise<UserRow[]> => {
+        if (debounceTimer) clearTimeout(debounceTimer)
+        settlePending([])
+        const id = ++requestId
+        return new Promise<UserRow[]>((resolve) => {
+            settle = resolve
+            debounceTimer = setTimeout(async () => {
+                settle = undefined
+                try {
+                    const res = await api.user.index({ ...MEMBER_CANDIDATE_PARAMS, 'filter[search]': query })
+                    resolve(id === requestId && res.ok ? res.data.data : [])
+                } catch {
+                    resolve([])
+                }
+            }, MENTION_SEARCH_DEBOUNCE_MS)
+        })
+    }
 }
 
 export function useUserTabCounts(params: MaybeRefOrGetter<ListParams>, opts?: {

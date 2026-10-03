@@ -49,6 +49,12 @@
 .redline-prose {
     a { text-decoration: underline; }
 
+    /* Mention chips (rendered bodies outside the editor; the editor theme styles its own). */
+    .mention {
+        color: var(--ui-primary);
+        font-weight: 500;
+    }
+
     ul li p, ol li p {
         @apply my-0;
     }

@@ -24,6 +24,7 @@ import { defineCustomElement } from 'vue'
 import { createPinia } from 'pinia'
 import ui from '@nuxt/ui/vue-plugin'
 import { VueQueryPlugin } from '@tanstack/vue-query'
+import { routeLocationKey, type RouteLocationNormalizedLoaded } from 'vue-router'
 
 import { vueQueryOptions } from '@/core/api/query-client'
 import Widget from '@/components/widget/Widget.ce.vue'
@@ -39,6 +40,27 @@ import css from '../css/redline.css?inline'
 
 const RedlineElement = defineCustomElement(Widget, {
     configureApp(app) {
+        // Dev-only shim: vite.config enables Nuxt UI's vue-router override in dev for the
+        // dashboard, and that override applies to the router-less widget too. Its ULink
+        // calls useRoute() (inject(routeLocationKey)) unconditionally, so with no route
+        // provided every UButton warns "injection 'route location' not found". Provide the
+        // same stub Nuxt UI uses without a router (stubs/none.js). Guarded by MODE, which is
+        // "development" under dev/dev:build-widget and "production" under build, so the
+        // vue-router import tree-shakes out of the production widget bundle.
+        if (import.meta.env.MODE === 'development') {
+            app.provide(routeLocationKey, {
+                fullPath: '/',
+                path: '/',
+                name: null,
+                params: {},
+                query: {},
+                hash: '',
+                meta: {},
+                matched: [],
+                redirectedFrom: undefined,
+            } as unknown as RouteLocationNormalizedLoaded)
+        }
+
         app.use(createPinia())
         app.use(ui)
         app.use(VueQueryPlugin, vueQueryOptions())

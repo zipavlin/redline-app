@@ -45,9 +45,11 @@ export default defineConfig(({ mode }) => {
                 // (full page reloads) - so in dev the router override is always enabled.
                 // Safe for the widget: its only U* `to` usages are external protocol
                 // URLs with target="_blank" (ToolbarMenu.vue, ReportDetailsVideo.vue,
-                // ReportDetailsScreenshot.vue), which take the plain-anchor branch;
-                // useRoute() injects undefined without a router but is only dereferenced
-                // when exactQuery is passed (the widget never does).
+                // ReportDetailsScreenshot.vue), which take the plain-anchor branch. But
+                // the override's setup still calls useRoute() unconditionally, and
+                // inject(routeLocationKey) warns on a missing key whether or not the
+                // result is used, so in dev the widget provides a route stub - see the
+                // configureApp shim in src/widget.ts.
                 router: isDashboard || mode === 'development',
                 // Both apps drive dark mode from store.settings.theme, so Nuxt UI's
                 // color-mode plugin (useDark → `.dark` on <html>) is disabled. The widget

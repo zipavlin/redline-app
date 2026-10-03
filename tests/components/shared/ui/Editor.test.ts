@@ -1,9 +1,12 @@
-import { describe, expect, it, vi } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
 
-const { capturedEditorProps } = vi.hoisted(() => ({
+const { capturedEditorProps, mentionMenuProps } = vi.hoisted(() => ({
     capturedEditorProps: {
         value: undefined as { handlePaste?: (view: unknown, event: unknown) => boolean } | undefined,
+    },
+    mentionMenuProps: {
+        value: undefined as { items?: unknown[] } | undefined,
     },
 }))
 
@@ -31,6 +34,9 @@ vi.mock('@nuxt/ui/components/EditorMentionMenu.vue', () => ({
         name: 'UEditorMentionMenuStub',
         props: ['editor', 'items', 'ignoreFilter', 'limit', 'appendTo', 'pluginKey'],
         emits: ['update:searchTerm'],
+        setup(props: { items?: unknown[] }) {
+            mentionMenuProps.value = props
+        },
         template: '<div class="ueditor-mention-menu-stub" />',
     },
 }))
@@ -81,7 +87,7 @@ interface EditorUser {
  * The real Editor now resolves the store + mention-search api, so every mount
  * provides both (the api returns no users - the menu is never opened here).
  */
-function mountEditor(options: { props?: Record<string, unknown>; user?: EditorUser | null } = {}) {
+function mountEditor(options: { props?: Record<string, unknown>; user?: EditorUser | null; users?: EditorUser[] } = {}) {
     return mount(Editor, {
         props: options.props,
         global: {
@@ -89,7 +95,7 @@ function mountEditor(options: { props?: Record<string, unknown>; user?: EditorUs
                 redline: {
                     api: {
                         user: {
-                            index: vi.fn().mockResolvedValue({ ok: true, status: 200, data: { data: [] } }),
+                            index: vi.fn().mockResolvedValue({ ok: true, status: 200, data: { data: options.users ?? [] } }),
                         },
                     },
                     config: {},
@@ -138,6 +144,10 @@ describe('Editor clipboard-image paste glue', () => {
 })
 
 describe('Editor mention menu', () => {
+    beforeEach(() => {
+        mentionMenuProps.value = undefined
+    })
+
     it('renders the mention menu for an authenticated user', () => {
         const wrapper = mountEditor({ user: reporter })
 
@@ -154,5 +164,33 @@ describe('Editor mention menu', () => {
         const wrapper = mountEditor({ props: { mention: false }, user: reporter })
 
         expect(wrapper.find('.ueditor-mention-menu-stub').exists()).toBe(false)
+    })
+
+    it('preloads bare-@ candidates for an authenticated user', async () => {
+        mountEditor({ user: reporter, users: [reporter] })
+        await flushPromises()
+
+        expect(mentionMenuProps.value?.items).toEqual([
+            { id: 'u1', label: 'Ada', avatar: { alt: 'Ada' } },
+        ])
+    })
+
+    it('does not preload candidates for a guest', async () => {
+        mountEditor()
+        await flushPromises()
+
+        expect(mentionMenuProps.value).toBeUndefined()
+    })
+
+    it('serves a typed search term into the menu items', async () => {
+        const wrapper = mountEditor({ user: reporter, users: [reporter] })
+        await flushPromises()
+
+        wrapper.findComponent({ name: 'UEditorMentionMenuStub' }).vm.$emit('update:searchTerm', 'ada')
+        await new Promise((resolve) => setTimeout(resolve, 300))
+
+        expect(mentionMenuProps.value?.items).toEqual([
+            { id: 'u1', label: 'Ada', avatar: { alt: 'Ada' } },
+        ])
     })
 })

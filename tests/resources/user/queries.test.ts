@@ -304,10 +304,36 @@ describe('useUserMentionSearch', () => {
             'filter[role:in]': 'reporter,developer,admin',
             'include[]': ['name', 'initials'],
             'sort[name]': 'asc',
-            'filter[search]': 'ab',
+            'paginate[page]': '1',
+            'paginate[per_page]': '10',
+            'filter[search:like]': 'ab',
         })
         await expect(superseded).resolves.toEqual([])
         await expect(latest).resolves.toEqual(fixture.data)
+    })
+
+    it('resolves the bare-@ (empty) query immediately instead of waiting out the debounce', async () => {
+        vi.useFakeTimers()
+        const fixture = userListFixture()
+        const { api, result } = mountResource(
+            () => useUserMentionSearch(),
+            makeApi,
+            (api) => api.user.index.mockResolvedValue({ ok: true, status: 200, data: fixture }),
+        )
+
+        const bare = result('')
+
+        // No timer advance: the empty query must resolve on the next microtask.
+        await expect(bare).resolves.toEqual(fixture.data)
+        expect(api.user.index).toHaveBeenCalledWith({
+            'filter[status]': 'approved',
+            'filter[role:in]': 'reporter,developer,admin',
+            'include[]': ['name', 'initials'],
+            'sort[name]': 'asc',
+            'paginate[page]': '1',
+            'paginate[per_page]': '10',
+            'filter[search:like]': '',
+        })
     })
 
     it('drops a stale in-flight response when a newer search starts', async () => {

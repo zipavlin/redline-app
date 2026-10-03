@@ -2,7 +2,7 @@ import { computed, getCurrentScope, onScopeDispose, toValue, type MaybeRefOrGett
 import { useQuery } from '@tanstack/vue-query'
 import { useApi } from '@/composables/useApi'
 import { userKeys } from '@/resources/user/keys'
-import type { ListParams } from '@/core/api/params'
+import { paginateParams, type ListParams } from '@/core/api/params'
 import type { UserCounts, UserListResponse, UserRow } from '@/resources/user/model'
 
 export function useUserList(params: MaybeRefOrGetter<ListParams>, opts?: {
@@ -43,8 +43,16 @@ export function useMemberCandidates(opts?: { enabled?: MaybeRefOrGetter<boolean>
 /** Debounce for the mention autocomplete - short enough to feel live, long enough to coalesce keystrokes. */
 const MENTION_SEARCH_DEBOUNCE_MS = 250
 
+/** Menu caps at 8 rows visually; one page of 10 covers it without over-fetching. */
+const MENTION_SEARCH_PER_PAGE = 10
+
 /**
  * Debounced `GET /user` search for the mention autocomplete.
+ *
+ * The bare-`@` case (empty query) fires immediately: `UEditorMentionMenu` runs with
+ * `ignore-filter`, and its suggestion only intercepts Enter while it holds items. A
+ * debounce delay there would leave the menu momentarily empty, so a quick Enter would
+ * fall through to ProseMirror and insert a newline instead of selecting a candidate.
  *
  * Latest-wins: a newer call resolves the superseded caller with `[]`, cancels the
  * pending timer, and invalidates any in-flight request via a token so a stale
@@ -62,30 +70,53 @@ export function useUserMentionSearch(): (query: string) => Promise<UserRow[]> {
         settle = undefined
     }
 
+    function clearPendingTimer(): void {
+        if (debounceTimer) {
+            clearTimeout(debounceTimer)
+            debounceTimer = undefined
+        }
+    }
+
+    async function requestRows(query: string, id: number): Promise<UserRow[]> {
+        try {
+            // `search` allows ONLY the `like` operator (see User::querySchema());
+            // the bare `filter[search]` key defaults to `eq` and 422s.
+            const res = await api.user.index({
+                ...MEMBER_CANDIDATE_PARAMS,
+                ...paginateParams(1, MENTION_SEARCH_PER_PAGE),
+                'filter[search:like]': query,
+            })
+            return id === requestId && res.ok ? res.data.data : []
+        } catch {
+            return []
+        }
+    }
+
+    function searchNow(query: string, id: number): Promise<UserRow[]> {
+        settle = undefined
+        return requestRows(query, id)
+    }
+
+    function schedule(query: string, id: number): Promise<UserRow[]> {
+        return new Promise<UserRow[]>((resolve) => {
+            settle = resolve
+            debounceTimer = setTimeout(() => { void searchNow(query, id).then(resolve) }, MENTION_SEARCH_DEBOUNCE_MS)
+        })
+    }
+
     if (getCurrentScope()) {
         onScopeDispose(() => {
-            if (debounceTimer) clearTimeout(debounceTimer)
+            clearPendingTimer()
             settlePending([])
             requestId++
         })
     }
 
     return (query: string): Promise<UserRow[]> => {
-        if (debounceTimer) clearTimeout(debounceTimer)
+        clearPendingTimer()
         settlePending([])
         const id = ++requestId
-        return new Promise<UserRow[]>((resolve) => {
-            settle = resolve
-            debounceTimer = setTimeout(async () => {
-                settle = undefined
-                try {
-                    const res = await api.user.index({ ...MEMBER_CANDIDATE_PARAMS, 'filter[search]': query })
-                    resolve(id === requestId && res.ok ? res.data.data : [])
-                } catch {
-                    resolve([])
-                }
-            }, MENTION_SEARCH_DEBOUNCE_MS)
-        })
+        return query === '' ? searchNow(query, id) : schedule(query, id)
     }
 }
 

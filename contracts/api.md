@@ -22,7 +22,9 @@ ID format: UUID strings for all resources.
 - `checkFeature()`: `screenshots`, `videos`, `comments` endpoints abort 403
   `"Feature disabled."` when the feature is in `REDLINE_DISABLED`.
 - Rich text (`body`) is sanitized server-side with an HTML allowlist
-  (`p,br,strong,em,s,a[href|title],ul,ol,li`, links forced
+  (`p,br,strong,em,s,a[href|title],ul,ol,li`, plus a `span` carrying only the
+  TipTap mention attributes
+  `data-type|data-id|data-label|data-mention-suggestion-char|class`; links forced
   `target=_blank rel=noopener noreferrer`).
 
 ---
@@ -166,8 +168,8 @@ Response: pagination envelope (see query-grammar.md).
 ### GET /user/aggregate - cookie | bearer (admin)
 Grammar: `filter[]` + `aggregate[]` (and the user schema's `status:count`).
 Dashboard tab counts are computed from
-`/user/aggregate?aggregate[status:count]=approved,pending&filter[search]=...&filter[role]=...`
-(status filter deliberately omitted so tabs don't jump).
+`/user/aggregate?aggregate[status:count]=approved,pending&filter[search:like]=...&filter[role]=...`
+  (status filter deliberately omitted so tabs don't jump).
 
 Response: `{ "<target>": { "<operator>": <scalar|object|array> } }` -
 e.g. `{ "status": { "count": { "approved": 5, "pending": 2 } } }`.
@@ -264,6 +266,25 @@ Body: `body` (required, sanitized). `200` - updated row (fresh, no includes).
 
 ### DELETE /report/{report} - cookie | bearer (owner or admin)
 Also deletes the stored screenshot/video files. `204` no content.
+
+### POST /report/{report}/member - cookie | bearer (developer+ or author)
+Adds members to the report. Body: `{ "user_ids": ["<uuid>", ...] }` - required
+array, 1..100 ids (each a string ≤ 255 chars). Gated by `UPDATE` (developer/admin
+or the report's author). Additive + idempotent (`syncWithoutDetaching`): re-posting
+an existing id is a no-op, not `409`. Each id must exist, be **approved**, and
+**not a guest**, else `422` `"One or more user ids are unknown."`. `200` with
+`{ "members": [ { "id", "name", "initials" }, ... ] }` - the report's full current
+list, sorted by `name` then `id`.
+
+### DELETE /report/{report}/member - cookie | bearer (developer+ or author; self-removal)
+Removes members. Body: `{ "user_ids": ["<uuid>", ...] }` - required array, 1..100
+ids (each a string ≤ 255 chars). Gated by `UPDATE` (developer/admin or author),
+except an eligible (approved, non-guest) caller may pass exactly their own id to
+remove themselves; any other id list gets `403`. Idempotent (`detach`): removing a
+pair that does not exist is a no-op, and ids are **not** validated for existence
+(an unknown id returns `200`). `200` with
+`{ "members": [ { "id", "name", "initials" }, ... ] }` - the full current list,
+sorted by `name` then `id`.
 
 ### POST /report/{report}/move - cookie | bearer (developer+ or owner)
 Body: `x` (required numeric), `y` (required numeric), `scroll_x`, `scroll_y`

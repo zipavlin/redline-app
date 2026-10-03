@@ -12,7 +12,7 @@
  * and the submit button; this component only emits `submit` (on Ctrl/⌘+Enter) and
  * exposes an in-editor slot for a floating action button.
  */
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { FocusPosition } from '@tiptap/vue-3'
 import type { EditorProps } from '@tiptap/pm/view'
 import type { EditorMentionMenuItem, EditorSuggestionMenuItem, EditorToolbarItem, EditorCustomHandlers } from '@nuxt/ui'
@@ -96,6 +96,9 @@ function resolveSuggestionContainer(): HTMLElement {
  * Feed the debounced server search into the mention menu. Results are ignored
  * when a newer term has been requested since (the composable also drops stale
  * responses) - the menu reopens automatically on the next non-empty result.
+ * Keeping the previous items on screen until the new term settles is deliberate:
+ * UEditorMentionMenu runs with `ignore-filter`, so an emptied list would close the
+ * dropdown mid-typing and let Enter insert a newline instead of a mention.
  */
 async function onMentionSearch(term: string): Promise<void> {
     latestMentionTerm = term
@@ -103,10 +106,19 @@ async function onMentionSearch(term: string): Promise<void> {
     if (term !== latestMentionTerm) return
     mentionItems.value = rows.map((row) => ({
         id: row.id,
-        label: row.name ?? row.email ?? row.id,
+        label: row.name ?? row.id,
         avatar: { alt: row.name ?? '' },
     }))
 }
+
+/**
+ * Seed the bare-`@` candidate list as soon as the menu is available. With a
+ * prefilled list the menu opens on the first `@` even before a search settles,
+ * so Enter selects a candidate rather than reaching ProseMirror as a newline.
+ */
+watch(showMentionMenu, (show) => {
+    if (show && mentionItems.value.length === 0) void onMentionSearch('')
+}, { immediate: true })
 
 /**
  * The editor swallows key events before they reach any host wrapper, so wire the

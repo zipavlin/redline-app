@@ -94,7 +94,7 @@ const selfMember = computed<Member | null>(() => {
     return user ? memberFromUser({ id: user.id, name: user.name }) : null
 })
 
-/** Candidate query is lazy and 403s for non-admins; fall back to self so "Assign to me" stays available. */
+/** Runs lazily once authenticated; if it fails or returns nothing, fall back to self so "Assign to me" stays available. */
 const candidatePool = computed<Member[]>(() => {
     const rows = candidatesData.value?.data
     if (rows?.length) return rows.map(memberFromUser)

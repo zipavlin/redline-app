@@ -13,8 +13,11 @@ import {
     statusAction,
     statusIcon,
     statusActionIcon,
+    statusActionLabel,
+    statusActionColor,
+    statusActionIconFor,
 } from '@/domain/status'
-import type { Status } from '@/domain/status'
+import type { Status, StatusColor } from '@/domain/status'
 import { ROLES } from '@/domain/role'
 import type { Role } from '@/domain/role'
 
@@ -174,11 +177,11 @@ describe('STATUS_META', () => {
 
     it('exposes the documented label/action/icon/color/bar/dot per status', () => {
         expect(STATUS_META).toEqual({
-            new: { label: 'New', action: '/', icon: 'i-lucide-sparkles', actionIcon: 'i-lucide-sparkles', color: 'error', bar: 'bg-error', dot: 'bg-error' },
-            noticed: { label: 'Noticed', action: 'Reopen', icon: 'i-lucide-eye', actionIcon: 'i-lucide-rotate-ccw', color: 'warning', bar: 'bg-warning', dot: 'bg-warning' },
-            progress: { label: 'Progress', action: 'Accept', icon: 'i-lucide-loader-circle', actionIcon: 'i-lucide-circle-arrow-right', color: 'info', bar: 'bg-info', dot: 'bg-info' },
-            resolved: { label: 'Resolved', action: 'Resolve', icon: 'i-lucide-check', actionIcon: 'i-lucide-circle-check', color: 'success', bar: 'bg-success', dot: 'bg-success' },
-            done: { label: 'Done', action: 'Close', icon: 'i-lucide-crown', actionIcon: 'i-lucide-circle-check-big', color: 'success', bar: 'bg-success/50', dot: 'bg-success/50' },
+            new: { label: 'New', action: '/', icon: 'i-lucide-sparkles', actionIcon: 'i-lucide-sparkles', color: 'error', progress: 0, bar: 'bg-error', dot: 'bg-error' },
+            noticed: { label: 'Noticed', action: 'Reopen', icon: 'i-lucide-eye', actionIcon: 'i-lucide-rotate-ccw', color: 'warning', progress: 15, bar: 'bg-warning', dot: 'bg-warning' },
+            progress: { label: 'Progress', action: 'Claim', icon: 'i-lucide-loader-circle', actionIcon: 'i-lucide-circle-arrow-right', color: 'info', progress: 75, bar: 'bg-info', dot: 'bg-info' },
+            resolved: { label: 'Resolved', action: 'Resolve', icon: 'i-lucide-check', actionIcon: 'i-lucide-circle-check', color: 'success', progress: 100, bar: 'bg-success', dot: 'bg-success' },
+            done: { label: 'Done', action: 'Close', icon: 'i-lucide-crown', actionIcon: 'i-lucide-circle-check-big', color: 'success', progress: 100, bar: 'bg-success/50', dot: 'bg-success/50' },
         })
     })
 
@@ -220,5 +223,64 @@ describe('status accessors', () => {
         expect(statusIcon(unknown)).toBe('bogus')
         expect(statusActionIcon(unknown)).toBe('bogus')
         expect(statusColor(unknown)).toBe('neutral')
+    })
+})
+
+/**
+ * Direction-aware actions: the target-only STATUS_META.action labeled a rewind
+ * (resolved → progress) with the target's forward action ("Claim") and painted it
+ * success. These helpers key on the from→to pair instead, so every reachable
+ * lifecycle edge is asserted here.
+ */
+describe('direction-aware status actions', () => {
+    const rows: Array<[Status, Status, string, StatusColor]> = [
+        ['new', 'noticed', 'Notice', 'success'],
+        ['noticed', 'progress', 'Claim', 'success'],
+        ['noticed', 'resolved', 'Resolve', 'success'],
+        ['progress', 'noticed', 'Release', 'warning'],
+        ['progress', 'resolved', 'Resolve', 'success'],
+        ['resolved', 'noticed', 'Reopen', 'warning'],
+        ['resolved', 'progress', 'Rollback', 'warning'],
+        ['resolved', 'done', 'Close', 'success'],
+        ['done', 'resolved', 'Reopen', 'warning'],
+    ]
+
+    it('labels every reachable from->to pair from the explicit table', () => {
+        for (const [from, to, label] of rows) {
+            expect(statusActionLabel(from, to), `${from} -> ${to}`).toBe(label)
+        }
+    })
+
+    it('paints rewinds warning and forward steps success', () => {
+        for (const [from, to, , color] of rows) {
+            expect(statusActionColor(from, to), `${from} -> ${to}`).toBe(color)
+        }
+    })
+
+    it('uses its own icon for the rewind/release/notice actions and the target icon otherwise', () => {
+        expect(statusActionIconFor('progress', 'noticed')).toBe('i-lucide-undo-2')
+        expect(statusActionIconFor('resolved', 'progress')).toBe('i-lucide-rotate-ccw')
+        expect(statusActionIconFor('done', 'resolved')).toBe('i-lucide-rotate-ccw')
+        expect(statusActionIconFor('new', 'noticed')).toBe('i-lucide-eye')
+        // Forward steps reuse the target's action icon.
+        expect(statusActionIconFor('noticed', 'progress')).toBe(statusActionIcon('progress'))
+        expect(statusActionIconFor('resolved', 'done')).toBe(statusActionIcon('done'))
+    })
+
+    it('falls back to the target-only meta for an unknown direction', () => {
+        expect(statusActionLabel('new', 'done')).toBe(statusAction('done'))
+        expect(statusActionIconFor('new', 'done')).toBe(statusActionIcon('done'))
+        expect(statusActionColor('new', 'done')).toBe('success')
+    })
+
+    it('rewinds read their own action, never the target action (regression)', () => {
+        // The target-only meta would label resolved -> progress with the target's
+        // forward action "Claim"; it is a "Rollback". Releasing progress is "Release".
+        expect(statusActionLabel('resolved', 'progress')).toBe('Rollback')
+        expect(statusActionColor('resolved', 'progress')).toBe('warning')
+        expect(statusActionLabel('progress', 'noticed')).toBe('Release')
+        expect(statusActionColor('progress', 'noticed')).toBe('warning')
+        expect(statusActionLabel('new', 'noticed')).toBe('Notice')
+        expect(statusActionLabel('new', 'noticed')).not.toBe(statusAction('noticed'))
     })
 })

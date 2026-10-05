@@ -55,7 +55,7 @@ export interface StatusMeta {
 export const STATUS_META: Record<Status, StatusMeta> = {
     new:      { label: 'New',      action: '/',       icon: 'i-lucide-sparkles',      actionIcon: 'i-lucide-sparkles',           color: 'error',   progress: 0, bar: 'bg-error',       dot: 'bg-error' },
     noticed:  { label: 'Noticed',  action: 'Reopen',  icon: 'i-lucide-eye',           actionIcon: 'i-lucide-rotate-ccw',         color: 'warning', progress: 15, bar: 'bg-warning',     dot: 'bg-warning' },
-    progress: { label: 'Progress', action: 'Accept',  icon: 'i-lucide-loader-circle', actionIcon: 'i-lucide-circle-arrow-right', color: 'info',    progress: 75, bar: 'bg-info',        dot: 'bg-info' },
+    progress: { label: 'Progress', action: 'Claim',   icon: 'i-lucide-loader-circle', actionIcon: 'i-lucide-circle-arrow-right', color: 'info',    progress: 75, bar: 'bg-info',        dot: 'bg-info' },
     resolved: { label: 'Resolved', action: 'Resolve', icon: 'i-lucide-check',         actionIcon: 'i-lucide-circle-check',       color: 'success', progress: 100, bar: 'bg-success',     dot: 'bg-success' },
     done:     { label: 'Done',     action: 'Close',   icon: 'i-lucide-crown',         actionIcon: 'i-lucide-circle-check-big',   color: 'success', progress: 100, bar: 'bg-success/50',  dot: 'bg-success/50' },
 }
@@ -82,6 +82,54 @@ export function statusIcon(status: Status): string {
 
 export function statusActionIcon(status: Status): string {
     return STATUS_META[status]?.actionIcon ?? status
+}
+
+/**
+ * Direction-aware action labels, keyed by the from→to pair. The target-only
+ * `STATUS_META.action` (the fallback in statusAction) cannot tell a forward step
+ * from a rewind, so a rewind reused the target's forward label and painted it
+ * success - resolved→progress is a "Rollback", not progress's "Claim". The action
+ * depends on BOTH endpoints, so each reachable edge is listed explicitly; labels
+ * repeat across edges (noticed→resolved and progress→resolved both "Resolve").
+ */
+const STATUS_ACTION_LABELS: readonly (readonly [Status, Status, string])[] = [
+    ['new', 'noticed', 'Notice'],
+    ['noticed', 'progress', 'Claim'],
+    ['noticed', 'resolved', 'Resolve'],
+    ['progress', 'noticed', 'Release'],
+    ['progress', 'resolved', 'Resolve'],
+    ['resolved', 'noticed', 'Reopen'],
+    ['resolved', 'progress', 'Rollback'],
+    ['resolved', 'done', 'Close'],
+    ['done', 'resolved', 'Reopen'],
+]
+
+function statusDirectionLabel(from: Status, to: Status): string | undefined {
+    return STATUS_ACTION_LABELS.find(([a, b]) => a === from && b === to)?.[2]
+}
+
+/** Action label for a from→to transition, falling back to the target meta. */
+export function statusActionLabel(from: Status, to: Status): string {
+    return statusDirectionLabel(from, to) ?? statusAction(to)
+}
+
+/** Direction-derived: a target earlier in the lifecycle is a rewind (warning), a forward step success. */
+export function statusActionColor(from: Status, to: Status): StatusColor {
+    return STATUSES.indexOf(to) < STATUSES.indexOf(from) ? 'warning' : 'success'
+}
+
+/**
+ * Action icon for a from→to transition. Rollback/Reopen (rewinds) and Release
+ * (un-claiming progress) get their own icon - the target meta's icon belongs to
+ * the target status, not the move - and Notice (new→noticed) an eye; everything
+ * else reuses `statusActionIcon(to)` (Claim falls to progress's forward icon).
+ */
+export function statusActionIconFor(from: Status, to: Status): string {
+    const label = statusActionLabel(from, to)
+    if (label === 'Reopen' || label === 'Rollback') return 'i-lucide-rotate-ccw'
+    if (label === 'Release') return 'i-lucide-undo-2'
+    if (label === 'Notice') return 'i-lucide-eye'
+    return statusActionIcon(to)
 }
 
 /**

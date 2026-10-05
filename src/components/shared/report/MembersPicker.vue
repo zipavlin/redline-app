@@ -7,12 +7,20 @@
 import { computed, ref } from 'vue'
 import type { Member } from '@/resources/report/model'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
     members: Member[]
     candidates: Member[]
     canEdit: boolean
     loading?: boolean
-}>()
+    /**
+     * The report's author id. The author is never a member (the server drops them
+     * from the list), so they must not reappear as a selectable candidate - only
+     * the candidate pool is filtered, never the server-owned members list.
+     */
+    authorId?: string | null
+}>(), {
+    authorId: null,
+})
 
 const emit = defineEmits<{
     add: [member: Member]
@@ -24,7 +32,9 @@ const query = ref('')
 
 // Computed
 const filteredMembers = computed(() => filterByName(props.members))
-const filteredCandidates = computed(() => filterByName(props.candidates))
+const filteredCandidates = computed(() =>
+    filterByName(props.candidates).filter(member => member.id !== props.authorId),
+)
 const isEmpty = computed(() => !filteredMembers.value.length && !(props.canEdit && filteredCandidates.value.length))
 
 // Functions

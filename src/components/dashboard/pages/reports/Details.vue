@@ -53,6 +53,8 @@ const canEdit = computed(() => isAuthor.value)
 const canDelete = computed(() => !!store.auth.user && (store.auth.user.isAdmin || isAuthor.value))
 // Member editing mirrors the backend UPDATE gate: author OR developer/admin.
 const canEditMembers = computed(() => !!store.auth.user && (store.auth.user.isDeveloper || isAuthor.value))
+// Status change permission: author OR developer (mirrors the widget's canChangeStatus).
+const canChangeStatus = computed(() => !!store.auth.user && (store.auth.user.isDeveloper || isAuthor.value))
 // Priority change mirrors the status gate: author OR developer/admin.
 const canChangePriority = computed(() => !!store.auth.user && (store.auth.user.isDeveloper || isAuthor.value))
 const optionsItems = computed(() => {
@@ -179,6 +181,7 @@ function openDetails(panel: DetailsPanel) {
                         :report-id="store.report.active.id"
                         :members="store.report.active.members ?? []"
                         :can-edit="canEditMembers"
+                        :author-id="activeAuthorId"
                     />
                     <PopoverMenu
                         v-if="canEdit || canDelete"
@@ -298,6 +301,7 @@ function openDetails(panel: DetailsPanel) {
                         />
                     </UTooltip>
                     <StatusChanger
+                        :authorized="canChangeStatus"
                         :status="store.report.active.status"
                         :role="store.auth.user?.role ?? null"
                         :loading="statusMutation.isPending.value"

@@ -102,3 +102,30 @@ describe('MembersPicker', () => {
         expect(wrapper.text()).toContain('No members found')
     })
 })
+
+describe('MembersPicker author exclusion', () => {
+    it('never offers the report author as a candidate to add', () => {
+        // The author is never a member (the server drops them), so the picker must
+        // not show them in "All members" of their own report.
+        const wrapper = mountPicker({ members: [], candidates: [amy, zoe], authorId: amy.id })
+
+        expect(wrapper.text()).toContain('Zoe Dev')
+        expect(wrapper.text()).not.toContain('Amy Alpha')
+    })
+
+    it('leaves the candidates untouched when no authorId is given', () => {
+        const wrapper = mountPicker({ members: [], candidates: [amy, zoe] })
+
+        expect(wrapper.text()).toContain('Amy Alpha')
+        expect(wrapper.text()).toContain('Zoe Dev')
+    })
+
+    it('does not filter the displayed members list by authorId', () => {
+        // Defensive: even if the server ever echoed the author in `members`, the
+        // picker must not silently drop a server-owned row.
+        const wrapper = mountPicker({ members: [amy], candidates: [zoe], authorId: amy.id })
+
+        expect(wrapper.text()).toContain('Report members')
+        expect(wrapper.text()).toContain('Amy Alpha')
+    })
+})

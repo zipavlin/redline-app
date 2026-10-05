@@ -16,6 +16,7 @@ import { authSlice } from '@/store/partials/auth'
 import { reportSlice, type SelectedReport } from '@/store/widget/selection'
 import { settingsSlice } from '@/store/partials/settings'
 import { WIDGET_LIST_INCLUDE, WIDGET_DETAIL_INCLUDE } from '@/resources/report/constants'
+import { applyMembersToStore, mergeReportPayload } from '@/resources/report/mutations'
 import type { RedlineContext } from '@/composables/useApi'
 import type { Report } from '@/resources/report/model'
 import type { Status } from '@/domain/status'
@@ -182,12 +183,24 @@ export const useWidgetStore = defineStore('redline-widget', () => {
         return true
     }
 
+    /**
+     * PATCH status then merge the full fresh row (preserving the widget's pin
+     * decoration) into the active report and its list row. The response also
+     * carries the current members list, which the merge writes through. The rows
+     * are SelectedReport - mergeReportPayload returns the store-agnostic entry
+     * type, hence the re-narrowing cast.
+     */
     async function changeStatus(id: string, status: Status): Promise<boolean> {
         const result = await redline.api.report.status(id, status)
         if (!result.ok) return false
-        if (report.active?.id === id) report.active = { ...report.active, status }
+        if (report.active?.id === id) {
+            report.active = mergeReportPayload(report.active, result.data) as SelectedReport
+        }
         const idx = report.list.findIndex(r => r.id === id)
-        if (idx !== -1) report.list[idx] = { ...report.list[idx], status }
+        if (idx !== -1) {
+            report.list[idx] = mergeReportPayload(report.list[idx], result.data) as SelectedReport
+        }
+        if (result.data.members) applyMembersToStore({ report }, id, result.data.members)
         return true
     }
 

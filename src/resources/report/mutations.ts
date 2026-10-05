@@ -112,16 +112,25 @@ export function useDeleteReportMutation() {
     })
 }
 
+/**
+ * PATCH report/{id}/status. The response always carries the current `members`
+ * list (and the noticed→progress transition may have added the acting user), so
+ * the Pinia report + list row are merged from the fresh row and the members are
+ * written through the same helper the member mutations use.
+ */
 export function useReportStatusMutation() {
     const api = useApi()
     const qc = useQueryClient()
+    const store = useStore<SharedStore & ReportStoreLike>()
     return useMutation({
         mutationFn: async ({ id, status }: { id: string; status: string }): Promise<Report> => {
             const res = await api.report.status(id, status)
             if (!res.ok) throw new Error('Failed to change status')
             return res.data
         },
-        onSuccess: (_data, { id }) => {
+        onSuccess: (data, { id }) => {
+            mergeReportIntoStore(store, data, id)
+            if (data.members) applyMembersToStore(store, id, data.members)
             qc.invalidateQueries({ queryKey: reportKeys.lists() })
             qc.invalidateQueries({ queryKey: reportKeys.detail(id) })
             qc.invalidateQueries({ queryKey: reportKeys.aggregates() })

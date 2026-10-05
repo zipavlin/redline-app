@@ -48,6 +48,10 @@ const isMembersOpen = ref(false)
 // The panel closes on an outside pointerdown, which fires before the priority
 // option's click - keep it non-dismissible while that nested popover is open.
 const isPriorityOpen = ref(false)
+// Same nested-popover hazard as the priority picker: the status option's click
+// arrives after Reka's outside pointerdown, so keep the panel locked while the
+// status dropdown is open or the chosen status never commits.
+const isStatusOpen = ref(false)
 // Inline body editing - locked (non-dismissible) so the draft can't be lost.
 const isEditing = ref(false)
 const isBodySaving = ref(false)
@@ -101,16 +105,17 @@ const hasElement = computed(() => store.report.active?.element instanceof Elemen
 
 /**
  * Panel is non-dismissible while editing (draft protection), while the options
- * menu is open, while the members or priority popover is open, or while the
- * comments panel is showing its composer. The nested popovers need this: their
- * option click arrives after Reka's outside pointerdown, so an unlocked panel
- * would close before the pick commits.
+ * menu is open, while the members, priority or status popover is open, or while
+ * the comments panel is showing its composer. The nested popovers need this:
+ * their option click arrives after Reka's outside pointerdown, so an unlocked
+ * panel would close before the pick commits.
  */
 const dismissible = computed(() =>
     !isEditing.value
     && !isMenuOpen.value
     && !isMembersOpen.value
     && !isPriorityOpen.value
+    && !isStatusOpen.value
     && detailsPanel.value !== 'comments',
 )
 
@@ -142,6 +147,7 @@ watch(() => store.report.active, (report) => {
         isMenuOpen.value = false
         isMembersOpen.value = false
         isPriorityOpen.value = false
+        isStatusOpen.value = false
         isEditing.value = false
         isElementBorderActive.value = false
         elementBorderRect.value = null
@@ -336,6 +342,7 @@ onMounted(() => {
                         :report-id="store.report.active.id"
                         :members="store.report.active.members ?? []"
                         :can-edit="canEditMembers"
+                        :author-id="activeAuthorId"
                         @update:open="(membersOpen: boolean) => isMembersOpen = membersOpen"
                     />
                     <!-- edit/delete -->
@@ -470,7 +477,8 @@ onMounted(() => {
                 </template>
                 <template #footer>
                     <StatusChanger
-                        v-if="canChangeStatus"
+                        :authorized="canChangeStatus"
+                        v-model:open="isStatusOpen"
                         :status="store.report.active.status"
                         :role="store.auth.user?.role ?? null"
                         :loading="isStatusLoading"

@@ -34,11 +34,14 @@ const props = withDefaults(defineProps<{
     reportId?: string
     members?: Member[]
     canEdit?: boolean
+    /** The report's author, excluded from the selectable candidates (never a member). */
+    authorId?: string | null
     placement?: 'bottom-end' | 'top-start'
     size?: 'xs' | 'sm'
 }>(), {
     placement: 'bottom-end',
     size: 'xs',
+    authorId: null,
 })
 
 const open = defineModel<boolean>('open', { default: false })
@@ -184,6 +187,7 @@ async function removeServerMember(member: Member): Promise<void> {
                 :candidates="candidates"
                 :can-edit="editable"
                 :loading="pending"
+                :author-id="authorId"
                 @add="addMember"
                 @remove="removeMember"
             >

@@ -29,6 +29,19 @@ export interface MountedResource<T> {
 const mountedWrappers: VueWrapper[] = []
 
 /**
+ * Minimal store share for the resource mutations that merge into the active
+ * report (body/priority/status read `auth` + `report`). Tests that assert the
+ * merge pass their own store through the same inject key.
+ */
+function createStore() {
+    return {
+        auth: { user: null, callback: null, authView: 'login' as const },
+        activateSession: () => {},
+        report: { active: null, list: [] as Record<string, unknown>[] },
+    }
+}
+
+/**
  * Mount a throwable component running `setup(api)` and return the fresh
  * QueryClient, api mocks and the composable result. The wrapper is tracked and
  * unmounted by `unmountResources()` (call from `afterEach`).
@@ -58,7 +71,7 @@ export function mountResource<T>(
         {
             global: {
                 plugins: [[VueQueryPlugin, { queryClient }]],
-                provide: { redline: { api, config: {} } },
+                provide: { redline: { api, config: {} }, store: createStore() },
             },
         },
     )

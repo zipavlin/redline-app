@@ -276,7 +276,9 @@ Adds members to the report. Body: `{ "user_ids": ["<uuid>", ...] }` - required
 array, 1..100 ids (each a string ≤ 255 chars). Gated by `UPDATE` (developer/admin
 or the report's author). Additive + idempotent (`syncWithoutDetaching`): re-posting
 an existing id is a no-op, not `409`. Each id must exist, be **approved**, and
-**not a guest**, else `422` `"One or more user ids are unknown."`. `200` with
+**not a guest**, else `422` `"One or more user ids are unknown."`. The report's
+author is never a member: posting the author's id is a no-op (same as an already-
+existing pair), and the author is excluded from the returned list. `200` with
 `{ "members": [ { "id", "name", "initials" }, ... ] }` - the report's full current
 list, sorted by `name` then `id`.
 
@@ -286,7 +288,8 @@ ids (each a string ≤ 255 chars). Gated by `UPDATE` (developer/admin or author)
 except an eligible (approved, non-guest) caller may pass exactly their own id to
 remove themselves; any other id list gets `403`. Idempotent (`detach`): removing a
 pair that does not exist is a no-op, and ids are **not** validated for existence
-(an unknown id returns `200`). `200` with
+(an unknown id returns `200`). The report's author is never a member, so the
+author is excluded from the returned list. `200` with
 `{ "members": [ { "id", "name", "initials" }, ... ] }` - the full current list,
 sorted by `name` then `id`.
 
@@ -299,7 +302,8 @@ Body: `x` (required numeric), `y` (required numeric), `scroll_x`, `scroll_y`
 Body: `status` (required; `new|noticed|progress|resolved|done`). Transitions
 are constrained by role **and** the lifecycle chain (see below).
 
-- `200` - updated row.
+- `200` - updated row; it always carries `members` - the report's current member
+  list (author excluded, sorted by `name` then `id`).
 - `403` - `{ "message": "Invalid status transition." }` (not a legal target
   for this user/current state).
 - `422` - validation (unknown enum value).
@@ -308,6 +312,11 @@ Lifecycle (bidirectional, adjacent only; `progress` may be skipped):
 `new ↔ noticed ↔ progress ↔ resolved ↔ done` (+ `noticed ↔ resolved`).
 Role targets: developers/admins → `noticed|progress|resolved`; reporter/owner
 → `progress|done`.
+
+On the `noticed → progress` transition the backend additionally records the
+**acting user** as a member (`syncWithoutDetaching`, idempotent). It is silently
+skipped when the actor is not approved, is a guest, or is the report's author,
+and can never fail the request. Other transitions leave members unchanged.
 
 ### PATCH /report/{report}/priority - cookie | bearer (developer+ or owner)
 Body: `priority` (required; `low|normal|high|critical`). Any value is settable
@@ -334,7 +343,9 @@ at any time - no transition graph or constraint (unlike `status`).
 - includable: `title`, `body`, `pin`, `element`, `url`, `location`; `browser`
   (developer gate); `author` (attrs `id,name,email`, default `id,name`);
   `screenshot` (`:exists`, attrs `id,url`); `video` (`:exists`, attrs `id,url`);
-  `comments` (`:count`, `:exists`, fixed nested shape with `author: {id,name}`).
+  `comments` (`:count`, `:exists`, fixed nested shape with `author: {id,name}`);
+  `members` (bare form via resolver to rows of `{id,name,initials}`, author
+  excluded; `:count`/`:exists` projections land as `members_count`/`members_exists`).
 - aggregates: `status` (`:count`), `priority` (`:count`, plain-column),
   `location` (`:count`, `:unique`),
   `author` (`:count` grouped by `author_id`, `:unique` → `[{id,name},...]`).

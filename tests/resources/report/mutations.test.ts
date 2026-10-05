@@ -37,11 +37,12 @@ vi.mock('@/composables/useStore', () => ({
     useStore: () => mockStore,
 }))
 
-import { useUpdateReportBodyMutation, useDeleteReportMutation } from '@/resources/report/mutations'
+import { useUpdateReportBodyMutation, useDeleteReportMutation, useReportPriorityMutation } from '@/resources/report/mutations'
 
 interface Mutations {
     updateBody: ReturnType<typeof useUpdateReportBodyMutation>
     deleteReport: ReturnType<typeof useDeleteReportMutation>
+    priority: ReturnType<typeof useReportPriorityMutation>
 }
 
 function mountRunner() {
@@ -49,7 +50,7 @@ function mountRunner() {
         defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     })
     const api = {
-        report: { update: vi.fn(), destroy: vi.fn() },
+        report: { update: vi.fn(), destroy: vi.fn(), priority: vi.fn() },
     }
     // Populated synchronously by setup() during mount(), before mountRunner returns.
     let mutations!: Mutations
@@ -59,6 +60,7 @@ function mountRunner() {
                 mutations = {
                     updateBody: useUpdateReportBodyMutation(),
                     deleteReport: useDeleteReportMutation(),
+                    priority: useReportPriorityMutation(),
                 }
                 return {}
             },
@@ -168,6 +170,35 @@ describe('useDeleteReportMutation', () => {
         await flushPromises()
         expect(api.report.destroy).toHaveBeenCalledWith('r1')
         expect(queryClient.getQueryState(reportKeys.lists())?.isInvalidated).toBe(true)
+        expect(queryClient.getQueryState(reportKeys.aggregates())?.isInvalidated).toBe(true)
+    })
+})
+
+describe('useReportPriorityMutation', () => {
+    beforeEach(() => setMockStore(null, []))
+
+    it('PATCHes report/{id}/priority and merges the fresh row into the active report and its list entry', async () => {
+        const { api, mutations } = mountRunner()
+        setMockStore({ id: 'r1', priority: 'normal' }, [{ id: 'r1', priority: 'normal' }])
+        api.report.priority.mockResolvedValue({ ok: true, data: { id: 'r1', priority: 'critical', status: 'new' } })
+        await mutations.priority.mutateAsync({ id: 'r1', priority: 'critical' })
+        await flushPromises()
+
+        expect(api.report.priority).toHaveBeenCalledWith('r1', 'critical')
+        expect(mockStore.report.active).toMatchObject({ id: 'r1', priority: 'critical' })
+        expect(mockStore.report.list[0]).toMatchObject({ id: 'r1', priority: 'critical' })
+    })
+
+    it('invalidates report lists, detail and aggregates', async () => {
+        const { api, mutations, queryClient } = mountRunner()
+        api.report.priority.mockResolvedValue({ ok: true, data: { id: 'r1', priority: 'high' } })
+        queryClient.setQueryData(reportKeys.lists(), { data: [] })
+        queryClient.setQueryData(reportKeys.detail('r1'), { id: 'r1' })
+        queryClient.setQueryData(reportKeys.aggregates(), {})
+        await mutations.priority.mutateAsync({ id: 'r1', priority: 'high' })
+        await flushPromises()
+        expect(queryClient.getQueryState(reportKeys.lists())?.isInvalidated).toBe(true)
+        expect(queryClient.getQueryState(reportKeys.detail('r1'))?.isInvalidated).toBe(true)
         expect(queryClient.getQueryState(reportKeys.aggregates())?.isInvalidated).toBe(true)
     })
 })

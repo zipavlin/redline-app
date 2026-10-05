@@ -12,10 +12,12 @@ import { extractMentionUserIds, isHtmlEmpty } from '@/core/text'
 import { pageToViewport, pinToElementPixels, pinToPagePixels } from '@/domain/pin'
 import { memberMutationError, useAddMembersMutation, useCreateReport } from '@/resources/report/mutations'
 import { memberFromUser, type Member } from '@/resources/report/model'
+import type { Priority } from '@/domain/priority'
 import { useMemberCandidates } from '@/resources/user/queries'
 import { ScreenshotCapture } from '@/core/capture/screenshot'
 import Editor from '@/components/shared/ui/Editor.vue'
 import MembersPicker from '@/components/shared/report/MembersPicker.vue'
+import PriorityPopover from '@/components/shared/report/PriorityPopover.vue'
 import {
     commandsSuggestionItems,
     insertsSuggestionItems,
@@ -30,6 +32,7 @@ const toast = useToast()
 // State
 const body = ref('')
 const submitting = ref(false)
+const priority = ref<Priority>('normal')
 const thumbnailUrl = ref('')
 const screenshotCapture = shallowRef<ScreenshotCapture>(new ScreenshotCapture())
 const createReport = useCreateReport()
@@ -39,6 +42,10 @@ const isPasting = ref(false)
 // Draft member selection - kept local, only persisted after the report exists.
 const selectedMemberIds = ref<string[]>([])
 const isMembersOpen = ref(false)
+// The composer popover closes on an outside pointerdown, which fires before the
+// priority option's click - keep it non-dismissible while that nested popover is open.
+const isPriorityOpen = ref(false)
+
 const { data: candidatesData } = useMemberCandidates({ enabled: () => !!store.auth.user })
 
 const customHandlers = {
@@ -186,6 +193,7 @@ async function onSubmit() {
             : null
         const saved = await createReport.mutateAsync({
             body: body.value,
+            priority: priority.value,
             pin: store.report.pending?.pin ?? null,
             element: store.report.pending?.element ?? null,
             screenshot,
@@ -270,10 +278,12 @@ function removeDraftMember(member: Member) {
 
 function _enter() {
     body.value = ''
+    priority.value = 'normal'
     thumbnailUrl.value = ''
     screenshotCapture.value = new ScreenshotCapture()
     selectedMemberIds.value = []
     isMembersOpen.value = false
+    isPriorityOpen.value = false
 }
 
 function _onPendingScroll() {
@@ -285,7 +295,7 @@ function _onPendingScroll() {
     <!-- Pending pin dot -->
     <div
         v-if="store.report.pending"
-        class="fixed pointer-events-none rounded-full bg-primary ring-2 ring-white/30 z-[5]"
+        class="fixed pointer-events-none rounded-full bg-primary ring-2 ring-white/30 z-5"
         style="width:10px;height:10px;transform:translate(-50%,-50%)"
         :style="pendingDotStyle"
     />
@@ -295,7 +305,7 @@ function _onPendingScroll() {
         v-model:open="open"
         :reference="reference"
         :content="{ side, align: 'start', sideOffset: 12 }"
-        :dismissible="!isMembersOpen"
+        :dismissible="!isMembersOpen && !isPriorityOpen"
         :ui="{ content: 'w-80' }"
         data-component="create-report"
     >
@@ -353,6 +363,7 @@ function _onPendingScroll() {
                             </div>
                         </template>
 
+                        <!-- Members -->
                         <UPopover
                             v-if="showMembers"
                             v-model:open="isMembersOpen"
@@ -411,6 +422,8 @@ function _onPendingScroll() {
                             </template>
                         </UPopover>
 
+                        <!-- Priority -->
+                        <PriorityPopover v-model="priority" v-model:open="isPriorityOpen" />
                     </div>
                     <UButton
                         color="success"

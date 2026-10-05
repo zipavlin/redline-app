@@ -9,6 +9,7 @@ import type { WidgetStore } from '@/store/widget'
 import { useConfirm } from '@/composables/useConfirm'
 import { VideoCapture } from '@/core/capture/video'
 import { pagePixelsToPin } from '@/domain/pin'
+import type { Priority } from '@/domain/priority'
 import { useCreateReport } from '@/resources/report/mutations'
 import Record from '@/components/widget/create/video/Record.vue'
 import Review from '@/components/widget/create/video/Review.vue'
@@ -88,12 +89,13 @@ function onRetake() {
 function onNext() { step.value = 'body' }
 function onBack() { step.value = 'review' }
 
-async function onSubmit(body: string) {
+async function onSubmit(body: string, priority: Priority) {
     if (submitting.value || !_blob) return
     submitting.value = true
     try {
         await createReport.mutateAsync({
             body: body || '<p>(video)</p>',
+            priority,
             pin: pendingPin.value,
             video: _blob,
         })

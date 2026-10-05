@@ -2,11 +2,11 @@
 import { computed, ref, watch } from 'vue'
 import { useStore } from '@/composables/useStore'
 import { useConfirm } from '@/composables/useConfirm'
-import { statusColor, type Status } from '@/domain/status'
+import { type Status } from '@/domain/status'
 import type { DashboardStore } from '@/store/dashboard'
 import { useComments } from '@/resources/comment/queries'
 import { useAddCommentMutation } from '@/resources/comment/mutations'
-import { useUpdateReportBodyMutation, useDeleteReportMutation, useReportStatusMutation } from '@/resources/report/mutations'
+import { useUpdateReportBodyMutation, useDeleteReportMutation, useReportStatusMutation, useReportPriorityMutation } from '@/resources/report/mutations'
 import { useMentionMemberSync } from '@/resources/report/mentions'
 import CommentForm from '@/components/shared/comment/CommentForm.vue'
 import CommentList from '@/components/shared/comment/CommentList.vue'
@@ -19,6 +19,8 @@ import ReportDetailsBrowser from '@/components/widget/report/ReportDetailsBrowse
 import ReportDetailsScreenshot from '@/components/widget/report/ReportDetailsScreenshot.vue'
 import ReportDetailsVideo from '@/components/widget/report/ReportDetailsVideo.vue'
 import { useToast } from '@nuxt/ui/composables/useToast'
+import {Priority} from "@/domain/priority";
+import PriorityBadge from "@/components/shared/report/PriorityBadge.vue";
 
 const store = useStore<DashboardStore>()
 const { confirm } = useConfirm()
@@ -35,6 +37,7 @@ const { data: commentsData } = useComments(() => store.report.active?.id ?? '')
 const updateBody = useUpdateReportBodyMutation()
 const deleteReport = useDeleteReportMutation()
 const statusMutation = useReportStatusMutation()
+const priorityMutation = useReportPriorityMutation()
 const { sync: syncMentions } = useMentionMemberSync()
 
 // Computed
@@ -50,6 +53,8 @@ const canEdit = computed(() => isAuthor.value)
 const canDelete = computed(() => !!store.auth.user && (store.auth.user.isAdmin || isAuthor.value))
 // Member editing mirrors the backend UPDATE gate: author OR developer/admin.
 const canEditMembers = computed(() => !!store.auth.user && (store.auth.user.isDeveloper || isAuthor.value))
+// Priority change mirrors the status gate: author OR developer/admin.
+const canChangePriority = computed(() => !!store.auth.user && (store.auth.user.isDeveloper || isAuthor.value))
 const optionsItems = computed(() => {
     const items: {
         label: string
@@ -134,6 +139,15 @@ async function setStatus(status: string) {
     }
 }
 
+async function setPriority(priority: string) {
+    if (priorityMutation.isPending.value || !store.report.active) return
+    try {
+        await priorityMutation.mutateAsync({ id: store.report.active.id, priority })
+    } catch {
+        toast.add({ title: 'Could not update priority', color: 'error' })
+    }
+}
+
 function isPanel(panel?: string): boolean {
     return detailsPanel.value === panel
 }
@@ -181,11 +195,19 @@ function openDetails(panel: DetailsPanel) {
                     />
                 </div>
 
-                <USeparator position="end">
-                    <UBadge :color="statusColor(store.report.active.status as Status)" variant="subtle" size="sm">
-                        {{ store.report.active.status }}
-                    </UBadge>
-                </USeparator>
+                <ProgressStatusDivider
+                    :status="store.report.active.status as Status"
+                    :priority="store.report.active.priority as Priority"
+                >
+                    <template #tag>
+                        <PriorityBadge
+                            :priority="store.report.active.priority"
+                            :editable="canChangePriority"
+                            :loading="priorityMutation.isPending.value"
+                            @change="setPriority"
+                        />
+                    </template>
+                </ProgressStatusDivider>
             </div>
         </template>
         <template #body>

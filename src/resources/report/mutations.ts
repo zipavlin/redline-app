@@ -5,6 +5,7 @@ import { getCleanUrl, getUrlKey } from '@/core/url'
 import { getBrowserInfo } from '@/core/browser'
 import { getCssSelector, resolveSelector } from '@/core/selector'
 import { pagePixelsToPin, pinToElementPixels } from '@/domain/pin'
+import type { Priority } from '@/domain/priority'
 import { reportKeys } from '@/resources/report/keys'
 import type { Member, Report } from '@/resources/report/model'
 
@@ -121,6 +122,30 @@ export function useReportStatusMutation() {
             return res.data
         },
         onSuccess: (_data, { id }) => {
+            qc.invalidateQueries({ queryKey: reportKeys.lists() })
+            qc.invalidateQueries({ queryKey: reportKeys.detail(id) })
+            qc.invalidateQueries({ queryKey: reportKeys.aggregates() })
+        },
+    })
+}
+
+/**
+ * PATCH report/{id}/priority. Same invalidations as the status mutation, plus a
+ * Pinia merge of the fresh row (like the body mutation) so the active dashboard
+ * report reflects the new priority without a reopen.
+ */
+export function useReportPriorityMutation() {
+    const api = useApi()
+    const qc = useQueryClient()
+    const store = useStore<SharedStore & ReportStoreLike>()
+    return useMutation({
+        mutationFn: async ({ id, priority }: { id: string; priority: string }): Promise<Report> => {
+            const res = await api.report.priority(id, priority)
+            if (!res.ok) throw new Error('Failed to change priority')
+            return res.data
+        },
+        onSuccess: (data, { id }) => {
+            mergeReportIntoStore(store, data, id)
             qc.invalidateQueries({ queryKey: reportKeys.lists() })
             qc.invalidateQueries({ queryKey: reportKeys.detail(id) })
             qc.invalidateQueries({ queryKey: reportKeys.aggregates() })
@@ -256,6 +281,7 @@ export function memberMutationError(error: unknown, fallback = 'Could not update
 
 export interface CreateReportInput {
     body: string
+    priority?: Priority
     pin?: { x: number; y: number; scroll_x?: number; scroll_y?: number } | null
     element?: Element | null
     screenshot?: Blob | null
@@ -274,6 +300,8 @@ export function useCreateReport() {
                 body: input.body,
                 browser: getBrowserInfo(),
             }
+
+            if (input.priority) payload.priority = input.priority
 
             if (input.element instanceof Element) {
                 const selector = getCssSelector(input.element)

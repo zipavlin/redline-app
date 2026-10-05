@@ -47,20 +47,25 @@ export interface StatusMeta {
     icon: string
     actionIcon: string
     color: StatusColor
+    progress: number
     bar: string
     dot: string
 }
 
 export const STATUS_META: Record<Status, StatusMeta> = {
-    new:      { label: 'New',      action: '/',       icon: 'i-lucide-sparkles',      actionIcon: 'i-lucide-sparkles',           color: 'error',   bar: 'bg-error',       dot: 'bg-error' },
-    noticed:  { label: 'Noticed',  action: 'Reopen',  icon: 'i-lucide-eye',           actionIcon: 'i-lucide-rotate-ccw',         color: 'warning', bar: 'bg-warning',     dot: 'bg-warning' },
-    progress: { label: 'Progress', action: 'Accept',  icon: 'i-lucide-loader-circle', actionIcon: 'i-lucide-circle-arrow-right', color: 'info',    bar: 'bg-info',        dot: 'bg-info' },
-    resolved: { label: 'Resolved', action: 'Resolve', icon: 'i-lucide-check',         actionIcon: 'i-lucide-circle-check',       color: 'success', bar: 'bg-success',     dot: 'bg-success' },
-    done:     { label: 'Done',     action: 'Close',   icon: 'i-lucide-crown',         actionIcon: 'i-lucide-circle-check-big',   color: 'success', bar: 'bg-success/50',  dot: 'bg-success/50' },
+    new:      { label: 'New',      action: '/',       icon: 'i-lucide-sparkles',      actionIcon: 'i-lucide-sparkles',           color: 'error',   progress: 0, bar: 'bg-error',       dot: 'bg-error' },
+    noticed:  { label: 'Noticed',  action: 'Reopen',  icon: 'i-lucide-eye',           actionIcon: 'i-lucide-rotate-ccw',         color: 'warning', progress: 15, bar: 'bg-warning',     dot: 'bg-warning' },
+    progress: { label: 'Progress', action: 'Accept',  icon: 'i-lucide-loader-circle', actionIcon: 'i-lucide-circle-arrow-right', color: 'info',    progress: 75, bar: 'bg-info',        dot: 'bg-info' },
+    resolved: { label: 'Resolved', action: 'Resolve', icon: 'i-lucide-check',         actionIcon: 'i-lucide-circle-check',       color: 'success', progress: 100, bar: 'bg-success',     dot: 'bg-success' },
+    done:     { label: 'Done',     action: 'Close',   icon: 'i-lucide-crown',         actionIcon: 'i-lucide-circle-check-big',   color: 'success', progress: 100, bar: 'bg-success/50',  dot: 'bg-success/50' },
 }
 
 export function statusColor(status: Status): StatusColor {
     return STATUS_META[status]?.color ?? 'neutral'
+}
+
+export function statusProgress(status: Status): number {
+    return STATUS_META[status]?.progress ?? 0
 }
 
 export function statusLabel(status: Status): string {

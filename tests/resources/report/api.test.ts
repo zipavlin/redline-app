@@ -62,6 +62,12 @@ describe('makeReportApi', () => {
         expect(client.patch).toHaveBeenCalledWith('report/r1/status', { status: 'resolved' })
     })
 
+    it('changes the priority via PATCH report/{id}/priority with { priority }', async () => {
+        const client = createClient()
+        await makeReportApi(client).priority('r1', 'critical')
+        expect(client.patch).toHaveBeenCalledWith('report/r1/priority', { priority: 'critical' })
+    })
+
     it('adds members via POST report/{id}/member with { user_ids }', async () => {
         const client = createClient()
         await makeReportApi(client).addMembers('r1', ['u1', 'u2'])

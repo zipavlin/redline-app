@@ -38,6 +38,10 @@ export function makeReportApi(client: ApiClient) {
             return client.patch<Report>(`report/${id}/status`, { status })
         },
 
+        priority(id: string, priority: string): Promise<ApiResult<Report>> {
+            return client.patch<Report>(`report/${id}/priority`, { priority })
+        },
+
         addMembers(id: string, userIds: string[]): Promise<ApiResult<MembersResponse>> {
             return client.post<MembersResponse>(`report/${id}/member`, { user_ids: userIds })
         },

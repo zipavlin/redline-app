@@ -1,4 +1,5 @@
 import type { Status } from '@/domain/status'
+import type { Priority } from '@/domain/priority'
 import { initialsFromName } from '@/domain/initials'
 import type { Pin } from '@/core/pin'
 import type { Comment } from '@/resources/comment/model'
@@ -11,6 +12,7 @@ import type { Browser } from '@/core/browser'
 export interface Report {
     id: string
     status: Status | string
+    priority: Priority | string
     created_at: string
     title?: string | null
     body?: string
@@ -61,6 +63,7 @@ export interface ReportListResponse extends Paginated<DashboardReportRow> {
 export interface DashboardReportRow {
     id: string
     status: Status
+    priority: Priority
     created_at: string
     title?: string
     body?: string

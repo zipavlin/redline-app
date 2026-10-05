@@ -16,7 +16,7 @@ ID format: UUID strings for all resources.
 
 - `checkUser()` gates: any authenticated user passes `LIST`/`VIEW`/`CREATE`
   unless a role rule applies; `EDIT` = author only; `DELETE` = owner or admin;
-  `UPDATE` (status/move/media) = developer+ (admin counts as developer) or
+  `UPDATE` (status/move/media/priority) = developer+ (admin counts as developer) or
   owner. Pending users and guests are blocked except guests may `CREATE` a
   report in guest mode. See `auth.md`.
 - `checkFeature()`: `screenshots`, `videos`, `comments` endpoints abort 403
@@ -221,8 +221,9 @@ JWTs). `200` - `{ "ok": true }`.
 Grammar: `filter[]` `include[]` `sort[]` `paginate[]`. All authenticated roles
 see all reports (no ownership scoping) unless `filter[mine]=1`.
 
-Response: pagination envelope; each row base = `id`, `status`, `created_at`.
-`body`, `title`, `pin`, `element`, `url`, `location`, `browser`, `author`,
+Response: pagination envelope; each row base = `id`, `status`, `priority`
+(default `"normal"`), `created_at`. `priority` is a base-row field, never
+include-gated. `body`, `title`, `pin`, `element`, `url`, `location`, `browser`, `author`,
 `screenshot`, `video`, `comments`, `*_count`/`*_exists` projections are
 include-gated.
 
@@ -248,16 +249,19 @@ Body:
     "scroll_x": 0, "scroll_y": 0             // optional numbers
   },
   "element": "div.product-card",              // optional string
-  "browser": { "...": "..." }                 // optional object (any keys)
+  "browser": { "...": "..." },                // optional object (any keys)
+  "priority": "normal"                        // optional, low|normal|high|critical
 }
 ```
 - `201` - the created report row (`fresh()->toArray()`): `id`, `status: "new"`,
-  `author_id`, `url`, `location`, `body`, `pin`, `element`, `browser`,
+  `priority` (the submitted value, or `"normal"` when omitted), `author_id`,
+  `url`, `location`, `body`, `pin`, `element`, `browser`,
   `created_at`, `updated_at`. No includes are applied to this response.
 - Guest mode: anonymous POST /report is attributed to the shared Guest user
   (`guest@redline.local`), gated by the guest-origin allowlist and the
   `redline-guest` rate limiter (see auth.md). Otherwise `401`.
-- `422` - validation shape.
+- `422` - validation shape (omitted `priority` defaults to `"normal"`; an
+  unknown enum value 422s).
 - `429` - guest `{ "message": "Too many requests." }`.
 
 ### PATCH /report/{report} - cookie | bearer (author only)
@@ -305,21 +309,34 @@ Lifecycle (bidirectional, adjacent only; `progress` may be skipped):
 Role targets: developers/admins → `noticed|progress|resolved`; reporter/owner
 → `progress|done`.
 
+### PATCH /report/{report}/priority - cookie | bearer (developer+ or owner)
+Body: `priority` (required; `low|normal|high|critical`). Any value is settable
+at any time - no transition graph or constraint (unlike `status`).
+
+- `200` - updated report row (fresh, no includes).
+- `403` - forbidden (caller is neither developer+ nor the report owner).
+- `422` - validation (missing or unknown enum value).
+
 ### Report query schema
 - filters: `status` (eq/not/like/in/not_in/null/not_null; values accept the
   groups `unresolved` → `new,noticed,progress` and `resolved` →
-  `resolved,done`, or a concrete status), `body` (string ops), `created_at`
+  `resolved,done`, or a concrete status), `priority` (string ops over the
+  concrete values `low,normal,high,critical`; no value groups), `body`
+  (string ops), `created_at`
   (date ops incl. `from`/`to`), `location` (string ops), `author`
   (eq/not/in/not_in/exists on id; relation attribute `author.name` only -
   `author.email:like` 422s), `search` (like, OR body/location), `mine` (eq,
   `author_id` = current user; truthy value), `screenshot` (exists),
   `video` (exists), `comments` (exists).
-- sortable: `created_at`, `status`, `location` (default `created_at desc, id desc`).
+- sortable: `created_at`, `status`, `priority` (enum-ordered, not lexical -
+  `sort[priority]=desc` puts `critical` first), `location`
+  (default `created_at desc, id desc`).
 - includable: `title`, `body`, `pin`, `element`, `url`, `location`; `browser`
   (developer gate); `author` (attrs `id,name,email`, default `id,name`);
   `screenshot` (`:exists`, attrs `id,url`); `video` (`:exists`, attrs `id,url`);
   `comments` (`:count`, `:exists`, fixed nested shape with `author: {id,name}`).
-- aggregates: `status` (`:count`), `location` (`:count`, `:unique`),
+- aggregates: `status` (`:count`), `priority` (`:count`, plain-column),
+  `location` (`:count`, `:unique`),
   `author` (`:count` grouped by `author_id`, `:unique` → `[{id,name},...]`).
 
 ---

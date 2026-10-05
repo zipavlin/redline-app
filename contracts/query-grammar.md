@@ -43,7 +43,7 @@ serializes them with `URLSearchParams.append`.
 | Group       | Purpose | Notes |
 |-------------|---------|-------|
 | `filter[]`  | Constrain rows | Whitelisted per resource. `<target>[:<op>]=<value>` |
-| `include[]` | Add attributes/relationships to **every** row | Base row is always `id`, `status`, `created_at`; everything else - including `body` and `author` - is include-gated. Widget and dashboard request different payloads from the same endpoint |
+| `include[]` | Add attributes/relationships to **every** row | Base row is always `id`, `status`, `created_at` (plus any resource-specific base fields such as report `priority`); everything else - including `body` and `author` - is include-gated. Widget and dashboard request different payloads from the same endpoint |
 | `sort[]`    | `sort[<attr>]=asc\|desc`, repeatable, first key wins ties | Falls back to the resource's `defaultSort` when omitted |
 | `paginate[]`| `paginate[per_page]` + `paginate[page]` | Omitting `per_page` returns **every** matching row (bounded only by optional `config('redline.api.max_rows')`, off by default); an explicit `per_page` is capped at **100** (422 outside 1..100) |
 | `aggregate[]`| Lives on its own `/aggregate` endpoint only | Deliberately not a param on `index()` - index's response type stays invariant, and aggregates often need *different* filters than the rows |
@@ -79,6 +79,12 @@ are per-resource; a disallowed operator 422s with a message naming the target.
   - `resolved` → every closed status (`resolved`, `done`)
   - `done` → exactly `done`
   - so `filter[status]=resolved` is a superset of `filter[status]=done`.
+
+## sort[] semantics
+
+- A schema may define a target's sort as an ordered **expression** rather than a
+  lexical column sort (e.g. an enum-ordered column where `desc` puts the highest
+  enum first). Per-resource ordering is documented in `api.md`.
 
 ## include[] semantics
 

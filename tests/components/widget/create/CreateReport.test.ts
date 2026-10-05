@@ -17,13 +17,17 @@ vi.mock('@nuxt/ui/runtime/composables/useToast', () => ({ useToast: () => ({ add
  * are not needed here and would pull in reka-ui presence/teleport behaviour.
  */
 vi.mock('@nuxt/ui/components/Popover.vue', () => ({
-    default: { name: 'UPopoverStub', template: '<div class="popover-stub"><slot name="content" /></div>' },
+    default: {
+        name: 'UPopoverStub',
+        props: ['dismissible'],
+        template: '<div class="popover-stub" :data-dismissible="String(dismissible)"><slot name="content" /></div>',
+    },
 }))
 vi.mock('@nuxt/ui/components/ChatPrompt.vue', () => ({
     default: { name: 'UChatPromptStub', template: '<div class="chat-prompt-stub"><slot name="body" /></div>' },
 }))
 vi.mock('@nuxt/ui/components/Button.vue', () => ({
-    default: { name: 'UButtonStub', template: '<button class="u-button-stub"><slot /></button>' },
+    default: { name: 'UButtonStub', props: ['label'], template: '<button class="u-button-stub">{{ label }}<slot /></button>' },
 }))
 vi.mock('@nuxt/ui/components/Tooltip.vue', () => ({
     default: { name: 'UTooltipStub', template: '<span class="u-tooltip-stub"><slot /></span>' },
@@ -69,6 +73,7 @@ vi.mock('@/components/shared/ui/Editor.vue', () => ({
 }))
 
 import CreateReport from '@/components/widget/create/CreateReport.vue'
+import PrioritySelect from '@/components/shared/ui/PrioritySelect.vue'
 
 interface Ctx {
     fillStyle: string
@@ -312,5 +317,75 @@ describe('CreateReport member assignment', () => {
         wrapper = mountReport(['screenshots']).wrapper
 
         expect(wrapper.find('.members-picker-stub').exists()).toBe(false)
+    })
+})
+
+describe('CreateReport priority', () => {
+    it('submits the default Normal priority in the report payload', async () => {
+        stubCanvas()
+        const mounted = mountComposerWithMembers()
+        wrapper = mounted.wrapper
+
+        await submitComposer(mounted.wrapper, false)
+
+        expect(mounted.api.report.store).toHaveBeenCalledWith(expect.objectContaining({ priority: 'normal' }))
+    })
+
+    it('updates the priority without closing the composer', async () => {
+        stubCanvas()
+        const mounted = mountComposerWithMembers()
+        wrapper = mounted.wrapper
+
+        await flushPromises()
+        const high = wrapper.findAll('button').find(button => button.text().trim() === 'High')
+        expect(high).toBeDefined()
+        await high!.trigger('click')
+        await nextTick()
+
+        // Picking a priority must not tear down the reporting form.
+        expect(wrapper.find('[data-component="create-report"]').exists()).toBe(true)
+        expect(mounted.store.report.pending).not.toBeNull()
+
+        await submitComposer(mounted.wrapper, false)
+        expect(mounted.api.report.store).toHaveBeenCalledWith(expect.objectContaining({ priority: 'high' }))
+    })
+})
+
+/**
+ * Regression guard: the nested priority popover opens inside the composer popover.
+ * Reka's outside-pointerdown cannot see the inner layer across the widget's shadow
+ * DOM, so the composer must become non-dismissible while the priority popover is
+ * open, or the option click never commits. happy-dom cannot reproduce the shadow
+ * layer detection, so the fix is pinned by asserting the dismissible wiring.
+ */
+describe('CreateReport priority popover dismissal wiring', () => {
+    function composerDismissible(w: VueWrapper): string | undefined {
+        return w.find('[data-component="create-report"]').attributes('data-dismissible')
+    }
+
+    it('locks composer dismissal while the priority popover is open, then commits the pick', async () => {
+        stubCanvas()
+        const { wrapper: w, api } = mountComposerWithMembers()
+        wrapper = w
+        await flushPromises()
+
+        expect(composerDismissible(w)).toBe('true')
+
+        const prioritySelect = w.findComponent(PrioritySelect)
+        await prioritySelect.vm.$emit('update:open', true)
+        await nextTick()
+        expect(composerDismissible(w)).toBe('false')
+
+        await prioritySelect.vm.$emit('update:open', false)
+        await nextTick()
+        expect(composerDismissible(w)).toBe('true')
+
+        const critical = w.findAll('button').find(button => button.text().trim() === 'Critical')
+        expect(critical).toBeDefined()
+        await critical!.trigger('click')
+        await nextTick()
+
+        await submitComposer(w, false)
+        expect(api.report.store).toHaveBeenCalledWith(expect.objectContaining({ priority: 'critical' }))
     })
 })

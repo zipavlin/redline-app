@@ -10,12 +10,13 @@ import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useStore } from '@/composables/useStore'
 import { usePinAnchor } from '@/composables/usePinAnchor'
 import { getFormattedDatetime, getRelativeTime } from '@/core/datetime'
-import { statusColor, type Status } from '@/domain/status'
-import { useUpdateReportBodyMutation } from '@/resources/report/mutations'
+import {type Status} from '@/domain/status'
+import { useReportPriorityMutation, useUpdateReportBodyMutation } from '@/resources/report/mutations'
 import { useMentionMemberSync } from '@/resources/report/mentions'
 import type { SelectedReport } from '@/store/widget/selection'
 import type { WidgetStore } from '@/store/widget'
 import StatusChanger from '@/components/shared/ui/StatusChanger.vue'
+import PriorityBadge from '@/components/shared/report/PriorityBadge.vue'
 import Prose from '@/components/shared/ui/Prose.vue'
 import InlineEditor from '@/components/shared/ui/InlineEditor.vue'
 import ReportDetailsBrowser from '@/components/widget/report/ReportDetailsBrowser.vue'
@@ -28,6 +29,7 @@ import PopoverAsModal from '@/components/shared/ui/PopoverAsModal.vue'
 import PopoverMenu from '@/components/shared/ui/PopoverMenu.vue'
 import { useToast } from '@nuxt/ui/composables/useToast'
 import { defineShortcuts } from '@nuxt/ui/composables/defineShortcuts'
+import {Priority} from "@/domain/priority";
 
 const store = useStore<WidgetStore>()
 const toast = useToast()
@@ -43,10 +45,14 @@ const isDeleteConfirmOpen = ref(false)
 const isDeleteLoading = ref(false)
 const isMenuOpen = ref(false)
 const isMembersOpen = ref(false)
+// The panel closes on an outside pointerdown, which fires before the priority
+// option's click - keep it non-dismissible while that nested popover is open.
+const isPriorityOpen = ref(false)
 // Inline body editing - locked (non-dismissible) so the draft can't be lost.
 const isEditing = ref(false)
 const isBodySaving = ref(false)
 const updateBody = useUpdateReportBodyMutation()
+const priorityMutation = useReportPriorityMutation()
 const { sync: syncMentions } = useMentionMemberSync()
 
 /**
@@ -87,16 +93,26 @@ const canEdit = computed(() => isAuthor.value)
 const canDelete = computed(() => !!store.auth.user && (store.auth.user.isAdmin || isAuthor.value))
 // Status change permission is unchanged: author OR developer.
 const canChangeStatus = computed(() => !!store.auth.user && (store.auth.user.isDeveloper || isAuthor.value))
+// Priority change mirrors the status gate: author OR developer/admin.
+const canChangePriority = computed(() => !!store.auth.user && (store.auth.user.isDeveloper || isAuthor.value))
 // Member editing permission mirrors the backend UPDATE gate: author OR developer/admin.
 const canEditMembers = computed(() => !!store.auth.user && (store.auth.user.isDeveloper || isAuthor.value))
 const hasElement = computed(() => store.report.active?.element instanceof Element)
 
 /**
  * Panel is non-dismissible while editing (draft protection), while the options
- * menu is open, while the members popover is open, or while the comments panel
- * is showing its composer.
+ * menu is open, while the members or priority popover is open, or while the
+ * comments panel is showing its composer. The nested popovers need this: their
+ * option click arrives after Reka's outside pointerdown, so an unlocked panel
+ * would close before the pick commits.
  */
-const dismissible = computed(() => !isEditing.value && !isMenuOpen.value && !isMembersOpen.value && detailsPanel.value !== 'comments')
+const dismissible = computed(() =>
+    !isEditing.value
+    && !isMenuOpen.value
+    && !isMembersOpen.value
+    && !isPriorityOpen.value
+    && detailsPanel.value !== 'comments',
+)
 
 const optionsItems = computed(() => {
     const items: {
@@ -125,6 +141,7 @@ watch(() => store.report.active, (report) => {
         detailsPanel.value = null
         isMenuOpen.value = false
         isMembersOpen.value = false
+        isPriorityOpen.value = false
         isEditing.value = false
         isElementBorderActive.value = false
         elementBorderRect.value = null
@@ -223,6 +240,15 @@ async function deleteReport() {
     }
 }
 
+async function setPriority(priority: string) {
+    if (priorityMutation.isPending.value || !store.report.active) return
+    try {
+        await priorityMutation.mutateAsync({ id: store.report.active.id, priority })
+    } catch {
+        toast.add({ title: 'Could not update priority', color: 'error' })
+    }
+}
+
 async function changeStatus(status: string) {
     if (isStatusLoading.value || !store.report.active) return
     isStatusLoading.value = true
@@ -287,7 +313,10 @@ onMounted(() => {
         data-component="report"
     >
         <template #content>
-            <PopoverAsModal :scrollable="true">
+            <PopoverAsModal
+                :scrollable="true"
+
+            >
                 <template #header>
                     <UUser
                         size="sm"
@@ -309,6 +338,7 @@ onMounted(() => {
                         :can-edit="canEditMembers"
                         @update:open="(membersOpen: boolean) => isMembersOpen = membersOpen"
                     />
+                    <!-- edit/delete -->
                     <PopoverMenu
                         v-if="canEdit || canDelete"
                         placement="bottom"
@@ -320,6 +350,7 @@ onMounted(() => {
                         :items="optionsItems"
                         @update:open="(menuOpen: boolean) => isMenuOpen = menuOpen"
                     />
+                    <!-- close -->
                     <UButton
                         size="xs"
                         variant="ghost"
@@ -329,10 +360,22 @@ onMounted(() => {
                         @click="open = false"
                     />
                 </template>
-                <template #tag>
-                    <UBadge :color="statusColor(store.report.active.status as Status)" variant="subtle" size="sm">
-                        {{ store.report.active.status ?? 'new' }}
-                    </UBadge>
+                <template #divider>
+                    <ProgressStatusDivider
+                        :status="store.report.active.status as Status"
+                        :priority="store.report.active.priority as Priority"
+                        class="pr-3 -mt-3 -mb-2"
+                    >
+                        <template #tag>
+                            <PriorityBadge
+                                v-model:open="isPriorityOpen"
+                                :priority="store.report.active.priority"
+                                :editable="canChangePriority"
+                                :loading="priorityMutation.isPending.value"
+                                @change="setPriority"
+                            />
+                        </template>
+                    </ProgressStatusDivider>
                 </template>
                 <template #body>
                     <InlineEditor
@@ -463,7 +506,7 @@ onMounted(() => {
     <!-- Element border highlight (fixed; rendered inside the shadow wrapper) -->
     <div
         v-if="isElementBorderActive && elementBorderRect"
-        class="fixed pointer-events-none rounded-xs outline-2 -outline-offset-2 outline-primary bg-primary/10 z-[7]"
+        class="fixed pointer-events-none rounded-xs outline-2 -outline-offset-2 outline-primary bg-primary/10 z-7"
         :style="{
             top: elementBorderRect.top + 'px',
             left: elementBorderRect.left + 'px',

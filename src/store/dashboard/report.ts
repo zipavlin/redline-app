@@ -6,6 +6,7 @@ import { reactive } from 'vue'
 import type { RedlineContext } from '@/composables/useApi'
 import type { AuthState } from '@/store/partials/auth'
 import type { DashboardReportRow, Report } from '@/resources/report/model'
+import type { Priority } from '@/domain/priority'
 import type { ListParams, SortDir } from '@/core/api/params'
 import {
     filterParams,
@@ -19,6 +20,7 @@ export type ReportStatusGroup = 'all' | 'unresolved' | 'resolved'
 
 export interface ReportFilter {
     statusGroup: ReportStatusGroup
+    priority: 'any' | Priority
     search: string
     mine: boolean
     assignedToMe: boolean
@@ -48,6 +50,7 @@ export function reportSlice(redline: RedlineContext, auth: AuthState) {
         active: null,
         filter: {
             statusGroup: 'all',
+            priority: 'any',
             search: '',
             mine: false,
             assignedToMe: false,
@@ -69,6 +72,7 @@ export function reportSlice(redline: RedlineContext, auth: AuthState) {
     function reportFilterParams(): ListParams {
         const parts: ListParams[] = []
         if (report.filter.statusGroup !== 'all') parts.push(filterParams('status', report.filter.statusGroup))
+        if (report.filter.priority !== 'any') parts.push(filterParams('priority', report.filter.priority))
         if (report.filter.search) parts.push(filterParams('body', report.filter.search, 'like'))
         if (report.filter.mine) parts.push(filterParams('mine', '1'))
         // Backend removed filter[assigned]; "assigned to me" is client-side now.

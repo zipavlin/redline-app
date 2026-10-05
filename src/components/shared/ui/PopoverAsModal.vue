@@ -4,7 +4,10 @@ const slots = defineSlots<{
     header?(): unknown
     'header-actions'(): unknown
     tag?(): unknown
+    divider?(): unknown
+    'before-body'?(): unknown
     body?(): unknown
+    'after-body'(): unknown
     footer?(): unknown
     'footer-actions'?(): unknown
     details?(): unknown
@@ -17,7 +20,7 @@ const props = defineProps<{
 
 <template>
     <template v-if="slots.header">
-        <div class="flex items-start justify-between gap-2 p-3" :class="{'border-b border-default': !slots.tag}">
+        <div class="flex items-start justify-between gap-2 p-3" :class="{'border-b border-default': !slots.tag && !slots.divider}">
             <slot name="header" />
 
             <template v-if="slots['header-actions']">
@@ -28,11 +31,15 @@ const props = defineProps<{
         </div>
     </template>
 
-    <template v-if="slots.tag">
+    <template v-if="slots.divider">
+        <slot name="divider" />
+    </template>
+    <template v-else-if="slots.tag">
         <USeparator position="end" class="pr-3 -mt-3 -mb-2">
             <slot name="tag" />
         </USeparator>
     </template>
+
 
     <template v-if="slots.body">
         <div class="flex flex-col gap-3 p-3 pb-4" :class="{'overflow-y-auto': props.scrollable}">

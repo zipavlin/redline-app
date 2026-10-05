@@ -11,6 +11,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { ScreenshotCapture } from '@/core/capture/screenshot'
 import { AnnotationCapture } from '@/core/capture/annotation'
 import { pagePixelsToPin } from '@/domain/pin'
+import type { Priority } from '@/domain/priority'
 import { useCreateReport } from '@/resources/report/mutations'
 import Annotation from '@/components/widget/create/annotation/Annotation.vue'
 import Crop from '@/components/widget/create/annotation/Crop.vue'
@@ -148,7 +149,7 @@ function onCropSubmit(rect: CropRect) {
     step.value = 'body'
 }
 
-async function onBodySubmit(body: string) {
+async function onBodySubmit(body: string, priority: Priority) {
     if (submitting.value) return
     submitting.value = true
     try {
@@ -158,6 +159,7 @@ async function onBodySubmit(body: string) {
         })
         await createReport.mutateAsync({
             body: body || '<p>(screenshot)</p>',
+            priority,
             pin: pendingPin.value,
             screenshot,
         })

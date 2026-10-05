@@ -7,6 +7,7 @@ import type { DashboardStore } from '@/store/dashboard'
 import { useDashboardTable } from '@/composables/useDashboardTable'
 import { getFormattedDatetime, getRelativeTime } from '@/core/datetime'
 import { statusColor, statusLabel } from '@/domain/status'
+import { PRIORITIES, priorityColor, priorityLabel, type Priority } from '@/domain/priority'
 import { useReportList, useReportAggregate } from '@/resources/report/queries'
 import { useMemberCandidates } from '@/resources/user/queries'
 import ReportFilterTags from '@/components/dashboard/pages/reports/ReportFilterTags.vue'
@@ -83,6 +84,16 @@ const statusGroup = computed({
     set: (v) => { store.report.filter.statusGroup = v as typeof store.report.filter.statusGroup },
 })
 
+const priorityItems = computed(() => [
+    { label: 'Any priority', value: 'any' },
+    ...PRIORITIES.map(priority => ({ label: priorityLabel(priority), value: priority })),
+])
+
+const priorityFilter = computed({
+    get: () => store.report.filter.priority,
+    set: (v) => { store.report.filter.priority = v as 'any' | Priority },
+})
+
 const search = computed({
     get: () => store.report.filter.search,
     set: (v) => { store.report.filter.search = v },
@@ -115,7 +126,7 @@ const hasAdvancedFilters = computed(() =>
     store.report.filter.mine || store.report.filter.hasMedia || store.report.filter.hasComments
     || store.report.filter.assignedToMe || store.report.filter.memberIds.length > 0
     || !!store.report.filter.userId || !!store.report.filter.dateFrom || !!store.report.filter.dateTo
-    || !!store.report.filter.location,
+    || !!store.report.filter.location || store.report.filter.priority !== 'any',
 )
 
 // Shared table behavior (selection, keyboard nav, sort, column visibility).
@@ -125,6 +136,7 @@ const hasAdvancedFilters = computed(() =>
  */
 const toggleableColumns = [
     { id: 'status', label: 'Status' },
+    { id: 'priority', label: 'Priority' },
     { id: 'title', label: 'Report' },
     { id: 'location', label: 'URL' },
     { id: 'filed_by', label: 'Filed by' },
@@ -144,7 +156,7 @@ const {
     page: store.report.page,
     sort: store.report,
     resetSource: () => [
-        store.report.filter.statusGroup, store.report.filter.search, store.report.filter.mine,
+        store.report.filter.statusGroup, store.report.filter.priority, store.report.filter.search, store.report.filter.mine,
         store.report.filter.hasMedia, store.report.filter.hasComments, store.report.filter.userId,
         store.report.filter.assignedToMe, store.report.filter.memberIds,
         store.report.filter.dateFrom, store.report.filter.dateTo, store.report.filter.location,
@@ -165,6 +177,15 @@ const columns: TableColumn<DashboardReportRow>[] = [
             UBadge,
             { variant: 'subtle', color: statusColor(row.original.status) },
             () => statusLabel(row.original.status),
+        ),
+    },
+    {
+        accessorKey: 'priority',
+        header: sortableHeader('priority', 'Priority'),
+        cell: ({ row }) => h(
+            UBadge,
+            { variant: 'subtle', color: priorityColor(row.original.priority) },
+            () => priorityLabel(row.original.priority),
         ),
     },
     {
@@ -255,6 +276,9 @@ const columns: TableColumn<DashboardReportRow>[] = [
                                 <USwitch v-model="store.report.filter.hasComments" label="Has comments" />
                                 <UFormField label="Reported by">
                                     <USelectMenu v-model="reportedBy" :items="authorItems" value-key="value" class="w-full" />
+                                </UFormField>
+                                <UFormField label="Priority">
+                                    <USelectMenu v-model="priorityFilter" :items="priorityItems" value-key="value" class="w-full" />
                                 </UFormField>
                                 <UFormField v-if="showMemberFilter" label="Member">
                                     <USelectMenu v-model="memberIds" :items="memberItems" value-key="value" multiple placeholder="Anyone" class="w-full" />

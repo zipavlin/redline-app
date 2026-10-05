@@ -2,20 +2,26 @@
 import { computed, ref } from 'vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { isHtmlEmpty } from '@/core/text'
+import type { Priority } from '@/domain/priority'
 import Editor from '@/components/shared/ui/Editor.vue'
+import PriorityPopover from '@/components/shared/report/PriorityPopover.vue'
 
 const props = withDefaults(defineProps<{ submitting?: boolean }>(), { submitting: false })
-const emit = defineEmits<{ submit: [body: string]; back: []; cancel: [] }>()
+const emit = defineEmits<{ submit: [body: string, priority: Priority]; back: []; cancel: [] }>()
 
 const { confirm } = useConfirm()
 const open = ref(true)
 const body = ref('')
+const priority = ref<Priority>('normal')
+// Closing the modal on an outside pointerdown would discard the priority pick,
+// which fires its click after that pointerdown - lock dismissal while it is open.
+const isPriorityOpen = ref(false)
 
 const isBodyFilled = computed(() => !isHtmlEmpty(body.value))
 
 function onSubmit() {
     if (!isBodyFilled.value || props.submitting) return
-    emit('submit', body.value)
+    emit('submit', body.value, priority.value)
 }
 
 async function onClose() {
@@ -30,6 +36,7 @@ async function onClose() {
         title="Describe the recording"
         description="Step 3 of 3 - Describe"
         :ui="{ content: 'max-w-[min(360px,calc(100vw-32px))]' }"
+        :dismissible="!isPriorityOpen"
         @update:open="(v: boolean) => !v && onClose()"
     >
         <template #header>
@@ -57,20 +64,24 @@ async function onClose() {
             </div>
         </template>
         <template #footer>
-            <UButton
-                variant="soft"
-                @click="emit('back')"
-                label="Back"
-            />
-            <UButton
-                variant="solid"
-                color="success"
-                icon="i-lucide-send"
-                :loading="submitting"
-                :disabled="submitting || !isBodyFilled"
-                @click="onSubmit"
-                label="Submit"
-            />
+            <div class="flex items-center w-full justify-start gap-1">
+                <UButton
+                    variant="soft"
+                    @click="emit('back')"
+                    label="Back"
+                />
+                <PriorityPopover v-model="priority" v-model:open="isPriorityOpen" />
+                <UButton
+                    variant="solid"
+                    color="success"
+                    icon="i-lucide-send"
+                    class="ml-auto"
+                    :loading="submitting"
+                    :disabled="submitting || !isBodyFilled"
+                    @click="onSubmit"
+                    label="Submit"
+                />
+            </div>
         </template>
     </UModal>
 </template>

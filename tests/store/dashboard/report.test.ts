@@ -27,6 +27,7 @@ describe('reportSlice', () => {
         const { report } = reportSlice(redline, createMockAuth())
 
         expect(report.filter.statusGroup).toBe('all')
+        expect(report.filter.priority).toBe('any')
         expect(report.filter.search).toBe('')
         expect(report.filter.mine).toBe(false)
         expect(report.filter.assignedToMe).toBe(false)
@@ -104,6 +105,20 @@ describe('reportSlice', () => {
         const params = reportListParams()
 
         expect(params['filter[location]']).toBe('/dashboard')
+    })
+
+    it('includes priority filter when not "any"', () => {
+        const { report, reportListParams } = reportSlice(redline, createMockAuth())
+        report.filter.priority = 'high'
+        const params = reportListParams()
+
+        expect(params['filter[priority]']).toBe('high')
+    })
+
+    it('omits the priority filter when "any"', () => {
+        const { reportFilterParams } = reportSlice(redline, createMockAuth())
+
+        expect(reportFilterParams()['filter[priority]']).toBeUndefined()
     })
 
     it('openReport loads report detail and sets active', async () => {

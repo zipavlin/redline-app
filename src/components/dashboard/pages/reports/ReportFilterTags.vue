@@ -7,6 +7,7 @@
 import { computed } from 'vue'
 import { useStore } from '@/composables/useStore'
 import type { DashboardStore } from '@/store/dashboard'
+import { priorityLabel } from '@/domain/priority'
 
 const props = defineProps<{
     authors: { id: string; name: string }[]
@@ -96,6 +97,15 @@ const tags = computed<Tag[]>(() => {
             },
         })
     }
+    if (store.report.filter.priority !== 'any') {
+        t.push({
+            key: 'priority',
+            label: `Priority: ${priorityLabel(store.report.filter.priority)}`,
+            clear: () => {
+                store.report.filter.priority = 'any'
+            },
+        })
+    }
     if (store.report.filter.dateFrom || store.report.filter.dateTo) {
         t.push({
             key: 'date',
@@ -124,6 +134,7 @@ function clearAll() {
     store.report.filter.hasComments = false
     store.report.filter.userId = null
     store.report.filter.location = null
+    store.report.filter.priority = 'any'
     store.report.filter.dateFrom = null
     store.report.filter.dateTo = null
 }

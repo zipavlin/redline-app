@@ -8,15 +8,14 @@ import { useStore } from '@/composables/useStore'
 import type { WidgetStore } from '@/store/widget'
 import { usePinAnchor } from '@/composables/usePinAnchor'
 import { getPinCoordinates } from '@/core/pin'
-import { extractMentionUserIds, isHtmlEmpty } from '@/core/text'
+import { isHtmlEmpty } from '@/core/text'
 import { pageToViewport, pinToElementPixels, pinToPagePixels } from '@/domain/pin'
-import { memberMutationError, useAddMembersMutation, useCreateReport } from '@/resources/report/mutations'
-import { memberFromUser, type Member } from '@/resources/report/model'
+import { useCreateReport } from '@/resources/report/mutations'
+import { useAssignCreatedReportMembers } from '@/resources/report/mentions'
 import type { Priority } from '@/domain/priority'
-import { useMemberCandidates } from '@/resources/user/queries'
 import { ScreenshotCapture } from '@/core/capture/screenshot'
 import Editor from '@/components/shared/ui/Editor.vue'
-import MembersPicker from '@/components/shared/report/MembersPicker.vue'
+import MemberPopover from '@/components/shared/report/MemberPopover.vue'
 import PriorityPopover from '@/components/shared/report/PriorityPopover.vue'
 import {
     commandsSuggestionItems,
@@ -36,17 +35,15 @@ const priority = ref<Priority>('normal')
 const thumbnailUrl = ref('')
 const screenshotCapture = shallowRef<ScreenshotCapture>(new ScreenshotCapture())
 const createReport = useCreateReport()
-const addMembers = useAddMembersMutation()
+const { assign } = useAssignCreatedReportMembers()
 const scrollTick = ref(0)
 const isPasting = ref(false)
 // Draft member selection - kept local, only persisted after the report exists.
 const selectedMemberIds = ref<string[]>([])
 const isMembersOpen = ref(false)
-// The composer popover closes on an outside pointerdown, which fires before the
-// priority option's click - keep it non-dismissible while that nested popover is open.
+// The composer popover closes on an outside pointerdown, which fires before a nested
+// popover's option click - keep it non-dismissible while any nested popover is open.
 const isPriorityOpen = ref(false)
-
-const { data: candidatesData } = useMemberCandidates({ enabled: () => !!store.auth.user })
 
 const customHandlers = {
     /**
@@ -95,31 +92,6 @@ const suggestionItems = computed<EditorSuggestionMenuItem[][]>(() => {
 })
 
 const isBodyFilled = computed(() => !isHtmlEmpty(body.value))
-
-const selfMember = computed<Member | null>(() => {
-    const user = store.auth.user
-    return user ? memberFromUser({ id: user.id, name: user.name }) : null
-})
-
-/** Runs lazily once authenticated; if it fails or returns nothing, fall back to self so "Assign to me" stays available. */
-const candidatePool = computed<Member[]>(() => {
-    const rows = candidatesData.value?.data
-    if (rows?.length) return rows.map(memberFromUser)
-    return selfMember.value ? [selfMember.value] : []
-})
-
-const draftMembers = computed<Member[]>(() => {
-    const pool = new Map<string, Member>()
-    if (selfMember.value) pool.set(selfMember.value.id, selfMember.value)
-    for (const member of candidatePool.value) pool.set(member.id, member)
-    return selectedMemberIds.value
-        .map(id => pool.get(id))
-        .filter((member): member is Member => !!member)
-})
-
-const draftCandidates = computed(() =>
-    candidatePool.value.filter(member => !selectedMemberIds.value.includes(member.id)),
-)
 
 const showMembers = computed(() => !!store.auth.user)
 
@@ -199,21 +171,7 @@ async function onSubmit() {
             screenshot,
         })
         // Mentioned users join the explicitly picked ones (deduped) as members.
-        const userIds = [...new Set([...selectedMemberIds.value, ...extractMentionUserIds(body.value)])]
-        if (userIds.length) {
-            /**
-             * Membership is non-fatal to the report: the report is already saved,
-             * so a failed assignment warns instead of failing the submit.
-             */
-            try {
-                await addMembers.mutateAsync({ id: saved.id, userIds })
-            } catch (error) {
-                toast.add({
-                    title: memberMutationError(error, 'Report saved, but members could not be assigned'),
-                    color: 'error',
-                })
-            }
-        }
+        await assign(saved.id, body.value, selectedMemberIds.value)
         toast.add({ title: 'Report submitted', color: 'success' })
         store.report.pending = null
         store.loadReports()
@@ -264,16 +222,6 @@ function handleImagePaste(file: File): boolean {
         })
         .finally(() => { isPasting.value = false })
     return true
-}
-
-function addDraftMember(member: Member) {
-    if (!selectedMemberIds.value.includes(member.id)) {
-        selectedMemberIds.value = [...selectedMemberIds.value, member.id]
-    }
-}
-
-function removeDraftMember(member: Member) {
-    selectedMemberIds.value = selectedMemberIds.value.filter(id => id !== member.id)
 }
 
 function _enter() {
@@ -364,63 +312,13 @@ function _onPendingScroll() {
                         </template>
 
                         <!-- Members -->
-                        <UPopover
+                        <MemberPopover
                             v-if="showMembers"
+                            v-model:member-ids="selectedMemberIds"
                             v-model:open="isMembersOpen"
-                            :content="{ side: 'top', align: 'start' }"
-                            arrow
-                        >
-                            <UTooltip text="Members" arrow>
-                                <UButton
-                                    color="neutral"
-                                    variant="ghost"
-                                    size="sm"
-                                    square
-                                    aria-label="Members"
-                                    :ui="{ base: 'rounded-full' }"
-                                >
-                                    <UAvatarGroup
-                                        v-if="draftMembers.length"
-                                        size="2xs"
-                                        :max="3"
-                                        :ui="{ base: 'ring-muted bg-muted' }"
-                                    >
-                                        <UAvatar
-                                            v-for="member in draftMembers"
-                                            :key="member.id"
-                                            :alt="member.name"
-                                            :ui="{ fallback: 'text-neutral' }"
-                                        />
-                                    </UAvatarGroup>
-                                    <UIcon
-                                        v-else
-                                        name="i-lucide-user-round-plus"
-                                        class="size-4"
-                                    />
-                                </UButton>
-                            </UTooltip>
-                            <template #content="{ close }">
-                                <MembersPicker
-                                    :members="draftMembers"
-                                    :candidates="draftCandidates"
-                                    :can-edit="true"
-                                    @add="addDraftMember"
-                                    @remove="removeDraftMember"
-                                >
-                                    <template #close>
-                                        <UButton
-                                            icon="i-lucide-x"
-                                            color="neutral"
-                                            variant="ghost"
-                                            size="xs"
-                                            square
-                                            aria-label="Close members"
-                                            @click="close"
-                                        />
-                                    </template>
-                                </MembersPicker>
-                            </template>
-                        </UPopover>
+                            placement="top-start"
+                            size="sm"
+                        />
 
                         <!-- Priority -->
                         <PriorityPopover v-model="priority" v-model:open="isPriorityOpen" />

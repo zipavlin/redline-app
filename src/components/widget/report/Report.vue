@@ -24,7 +24,7 @@ import ReportDetailsScreenshot from '@/components/widget/report/ReportDetailsScr
 import ReportDetailsVideo from '@/components/widget/report/ReportDetailsVideo.vue'
 import ReportDetailsPagination from '@/components/widget/report/ReportDetailsPagination.vue'
 import ReportDetailsComments from '@/components/widget/report/ReportDetailsComments.vue'
-import ReportMembers from '@/components/shared/report/ReportMembers.vue'
+import MemberPopover from '@/components/shared/report/MemberPopover.vue'
 import PopoverAsModal from '@/components/shared/ui/PopoverAsModal.vue'
 import PopoverMenu from '@/components/shared/ui/PopoverMenu.vue'
 import { useToast } from '@nuxt/ui/composables/useToast'
@@ -332,7 +332,7 @@ onMounted(() => {
                     </UUser>
                 </template>
                 <template #header-actions>
-                    <ReportMembers
+                    <MemberPopover
                         :report-id="store.report.active.id"
                         :members="store.report.active.members ?? []"
                         :can-edit="canEditMembers"

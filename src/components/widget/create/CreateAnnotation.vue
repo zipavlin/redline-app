@@ -13,6 +13,7 @@ import { AnnotationCapture } from '@/core/capture/annotation'
 import { pagePixelsToPin } from '@/domain/pin'
 import type { Priority } from '@/domain/priority'
 import { useCreateReport } from '@/resources/report/mutations'
+import { useAssignCreatedReportMembers } from '@/resources/report/mentions'
 import Annotation from '@/components/widget/create/annotation/Annotation.vue'
 import Crop from '@/components/widget/create/annotation/Crop.vue'
 import Body from '@/components/widget/create/annotation/Body.vue'
@@ -25,6 +26,7 @@ const { confirm } = useConfirm()
 const store = useStore<WidgetStore>()
 const toast = useToast()
 const createReport = useCreateReport()
+const { assign } = useAssignCreatedReportMembers()
 
 // State
 const step = ref<'annotation' | 'crop' | 'body' | null>(null)
@@ -149,7 +151,7 @@ function onCropSubmit(rect: CropRect) {
     step.value = 'body'
 }
 
-async function onBodySubmit(body: string, priority: Priority) {
+async function onBodySubmit(body: string, priority: Priority, memberIds: string[]) {
     if (submitting.value) return
     submitting.value = true
     try {
@@ -157,12 +159,14 @@ async function onBodySubmit(body: string, priority: Priority) {
             console.warn('[redline] annotation blob capture failed - submitting without screenshot', err)
             return null
         })
-        await createReport.mutateAsync({
+        const saved = await createReport.mutateAsync({
             body: body || '<p>(screenshot)</p>',
             priority,
             pin: pendingPin.value,
             screenshot,
         })
+        // Picked members + body mentions are assigned after the report exists.
+        await assign(saved.id, body, memberIds)
         toast.add({ title: 'Report submitted', color: 'success' })
         store.loadReports()
         cancel()

@@ -13,7 +13,7 @@ import CommentList from '@/components/shared/comment/CommentList.vue'
 import Prose from '@/components/shared/ui/Prose.vue'
 import InlineEditor from '@/components/shared/ui/InlineEditor.vue'
 import PopoverMenu from '@/components/shared/ui/PopoverMenu.vue'
-import ReportMembers from '@/components/shared/report/ReportMembers.vue'
+import MemberPopover from '@/components/shared/report/MemberPopover.vue'
 import StatusChanger from '@/components/shared/ui/StatusChanger.vue'
 import ReportDetailsBrowser from '@/components/widget/report/ReportDetailsBrowser.vue'
 import ReportDetailsScreenshot from '@/components/widget/report/ReportDetailsScreenshot.vue'
@@ -175,7 +175,7 @@ function openDetails(panel: DetailsPanel) {
                         :description="store.report.active.author?.email"
                     />
                     <UDashboardSidebarToggle size="xs" class="-mt-1 shrink-0" />
-                    <ReportMembers
+                    <MemberPopover
                         :report-id="store.report.active.id"
                         :members="store.report.active.members ?? []"
                         :can-edit="canEditMembers"

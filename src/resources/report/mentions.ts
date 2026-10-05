@@ -67,3 +67,30 @@ export function useMentionMemberSync() {
 
     return { sync }
 }
+
+/**
+ * Assign the members picked in a draft composer (and everyone mentioned in the
+ * submitted body) to a freshly created report. Runs after the create mutation
+ * resolves, since member ids need a real report; the union dedupes so a picked
+ * mention is assigned once. Assignment is non-fatal - the report is already
+ * saved, so a failure warns instead of failing the submit.
+ */
+export function useAssignCreatedReportMembers() {
+    const toast = useToast()
+    const addMembers = useAddMembersMutation()
+
+    async function assign(reportId: string, html: string, pickedIds: string[] = []): Promise<void> {
+        const userIds = [...new Set([...pickedIds, ...extractMentionUserIds(html)])]
+        if (!userIds.length) return
+        try {
+            await addMembers.mutateAsync({ id: reportId, userIds })
+        } catch (error) {
+            toast.add({
+                title: memberMutationError(error, 'Report saved, but members could not be assigned'),
+                color: 'error',
+            })
+        }
+    }
+
+    return { assign }
+}

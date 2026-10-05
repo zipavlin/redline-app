@@ -38,20 +38,18 @@ vi.mock('@nuxt/ui/components/AvatarGroup.vue', () => ({
 vi.mock('@nuxt/ui/components/Avatar.vue', () => ({
     default: { name: 'UAvatarStub', props: ['alt', 'icon', 'size', 'ui'], template: '<span class="u-avatar" :data-icon="icon">{{ alt }}</span>' },
 }))
-vi.mock('@/components/shared/report/MembersPicker.vue', () => ({
+vi.mock('@/components/shared/report/MemberPopover.vue', () => ({
     default: {
-        name: 'MembersPickerStub',
-        props: ['members', 'candidates', 'canEdit', 'loading'],
-        emits: ['add', 'remove'],
+        name: 'MemberPopoverStub',
+        props: ['memberIds', 'open', 'placement', 'size'],
+        emits: ['update:memberIds', 'update:open'],
         template: `
-            <div class="members-picker-stub">
+            <div class="report-members-stub">
                 <button
-                    v-for="candidate in candidates"
-                    :key="candidate.id"
                     class="mp-add"
-                    :data-id="candidate.id"
-                    @click="$emit('add', candidate)"
-                >{{ candidate.name }}</button>
+                    data-id="u2"
+                    @click="$emit('update:memberIds', [...memberIds, 'u2'])"
+                >add member</button>
             </div>`,
     },
 }))
@@ -73,7 +71,7 @@ vi.mock('@/components/shared/ui/Editor.vue', () => ({
 }))
 
 import CreateReport from '@/components/widget/create/CreateReport.vue'
-import PrioritySelect from '@/components/shared/ui/PrioritySelect.vue'
+import PriorityPopover from '@/components/shared/report/PriorityPopover.vue'
 
 interface Ctx {
     fillStyle: string
@@ -237,17 +235,6 @@ function membersApi() {
             store: vi.fn().mockResolvedValue({ ok: true, status: 200, data: { id: 'r1', status: 'new', created_at: '2026-01-01T00:00:00Z' } }),
             addMembers: vi.fn().mockResolvedValue({ ok: true, status: 200, data: { members: [] } }),
         },
-        user: {
-            index: vi.fn().mockResolvedValue({
-                ok: true,
-                status: 200,
-                data: {
-                    data: [{ id: 'u2', status: 'approved', created_at: '2026-01-01T00:00:00Z', name: 'Zoe Dev', initials: 'ZD' }],
-                    meta: { total: 1 },
-                    counts: { all: 1, active: 1, pending: 0 },
-                },
-            }),
-        },
     }
 }
 
@@ -316,7 +303,7 @@ describe('CreateReport member assignment', () => {
         stubCanvas()
         wrapper = mountReport(['screenshots']).wrapper
 
-        expect(wrapper.find('.members-picker-stub').exists()).toBe(false)
+        expect(wrapper.find('.report-members-stub').exists()).toBe(false)
     })
 })
 
@@ -371,12 +358,12 @@ describe('CreateReport priority popover dismissal wiring', () => {
 
         expect(composerDismissible(w)).toBe('true')
 
-        const prioritySelect = w.findComponent(PrioritySelect)
-        await prioritySelect.vm.$emit('update:open', true)
+        const priorityPopover = w.findComponent(PriorityPopover)
+        await priorityPopover.vm.$emit('update:open', true)
         await nextTick()
         expect(composerDismissible(w)).toBe('false')
 
-        await prioritySelect.vm.$emit('update:open', false)
+        await priorityPopover.vm.$emit('update:open', false)
         await nextTick()
         expect(composerDismissible(w)).toBe('true')
 

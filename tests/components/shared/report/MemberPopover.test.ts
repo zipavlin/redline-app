@@ -97,7 +97,7 @@ vi.mock('@/components/shared/report/MembersPicker.vue', () => ({
     },
 }))
 
-import ReportMembers from '@/components/shared/report/ReportMembers.vue'
+import MemberPopover from '@/components/shared/report/MemberPopover.vue'
 
 const amy: Member = { id: 'u1', name: 'Amy Alpha', initials: 'AA' }
 const zoe: Member = { id: 'u2', name: 'Zoe Dev', initials: 'ZD' }
@@ -111,7 +111,16 @@ function userList(rows: { id: string; status?: string; created_at?: string; name
     }
 }
 
-function mountMembers(props: { reportId?: string; members?: Member[]; canEdit?: boolean } = {}) {
+interface MembersProps {
+    reportId?: string
+    members?: Member[]
+    canEdit?: boolean
+    memberIds?: string[]
+    placement?: 'bottom-end' | 'top-start'
+    size?: 'xs' | 'sm'
+}
+
+function mountMembers(props: MembersProps = {}) {
     const queryClient = new QueryClient({
         defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     })
@@ -119,7 +128,7 @@ function mountMembers(props: { reportId?: string; members?: Member[]; canEdit?: 
         user: { index: vi.fn() },
         report: { addMembers: vi.fn(), removeMembers: vi.fn() },
     }
-    const wrapper = mount(ReportMembers, {
+    const wrapper = mount(MemberPopover, {
         props: { reportId: 'r1', members: [], canEdit: true, ...props },
         global: {
             plugins: [[VueQueryPlugin, { queryClient }]],
@@ -147,7 +156,7 @@ afterEach(() => {
     wrapper = undefined
 })
 
-describe('ReportMembers trigger', () => {
+describe('MemberPopover trigger', () => {
     it('shows a dashed placeholder avatar when there are no members', () => {
         wrapper = mountMembers().wrapper
 
@@ -165,7 +174,81 @@ describe('ReportMembers trigger', () => {
     })
 })
 
-describe('ReportMembers popover', () => {
+describe('MemberPopover draft mode', () => {
+    it('resolves a selected id to the current user before candidates return', async () => {
+        const mounted = mountMembers({ reportId: undefined, memberIds: ['me'] })
+        wrapper = mounted.wrapper
+        mounted.api.user.index.mockResolvedValue({ ok: false, status: 403, data: null })
+
+        await openPopover(wrapper)
+        await flushPromises()
+
+        expect(wrapper.findComponent({ name: 'MembersPicker' }).props('members')).toEqual([
+            { id: 'me', name: 'Me Myself', initials: 'MM' },
+        ])
+    })
+
+    it('excludes already-picked members from the candidates', async () => {
+        const mounted = mountMembers({ reportId: undefined, memberIds: ['u1'] })
+        wrapper = mounted.wrapper
+        mounted.api.user.index.mockResolvedValue({ ok: true, status: 200, data: userList([amy, zoe]) })
+
+        await openPopover(wrapper)
+        await flushPromises()
+
+        expect(wrapper.find('.mp-add[data-id="u1"]').exists()).toBe(false)
+        expect(wrapper.find('.mp-add[data-id="u2"]').exists()).toBe(true)
+    })
+
+    it('emits updated ids when adding and removing without touching the api', async () => {
+        const mounted = mountMembers({ reportId: undefined, memberIds: ['u1'] })
+        wrapper = mounted.wrapper
+        mounted.api.user.index.mockResolvedValue({ ok: true, status: 200, data: userList([amy, zoe]) })
+
+        await openPopover(wrapper)
+        await flushPromises()
+
+        await wrapper.find('.mp-add[data-id="u2"]').trigger('click')
+        await nextTick()
+        expect(wrapper.emitted('update:memberIds')?.at(-1)).toEqual([['u1', 'u2']])
+        expect(mounted.api.report.addMembers).not.toHaveBeenCalled()
+
+        await wrapper.setProps({ memberIds: ['u1', 'u2'] })
+        await nextTick()
+        await wrapper.find('.mp-remove[data-id="u2"]').trigger('click')
+        await nextTick()
+        expect(wrapper.emitted('update:memberIds')?.at(-1)).toEqual([['u1']])
+        expect(mounted.api.report.removeMembers).not.toHaveBeenCalled()
+    })
+
+    it('keeps self available when the candidate query is unauthorized', async () => {
+        const mounted = mountMembers({ reportId: undefined })
+        wrapper = mounted.wrapper
+        mounted.api.user.index.mockResolvedValue({ ok: false, status: 403, data: null })
+
+        await openPopover(wrapper)
+        await flushPromises()
+
+        expect(wrapper.find('.mp-add[data-id="me"]').text()).toContain('Me Myself')
+        expect(wrapper.findComponent({ name: 'MembersPicker' }).props('loading')).toBe(false)
+    })
+
+    it('defaults to a bottom-end popover at extra-small size', () => {
+        wrapper = mountMembers().wrapper
+
+        expect(wrapper.findComponent({ name: 'UPopover' }).props('content')).toEqual({ side: 'bottom', align: 'end' })
+        expect(wrapper.findComponent({ name: 'UButton' }).props('size')).toBe('xs')
+    })
+
+    it('plumbs a custom placement and size through', () => {
+        wrapper = mountMembers({ placement: 'top-start', size: 'sm' }).wrapper
+
+        expect(wrapper.findComponent({ name: 'UPopover' }).props('content')).toEqual({ side: 'top', align: 'start' })
+        expect(wrapper.findComponent({ name: 'UButton' }).props('size')).toBe('sm')
+    })
+})
+
+describe('MemberPopover popover', () => {
     it('opens read-only without remove or candidate controls', async () => {
         wrapper = mountMembers({ members: [amy], canEdit: false }).wrapper
 

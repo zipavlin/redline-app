@@ -11,6 +11,7 @@ import { VideoCapture } from '@/core/capture/video'
 import { pagePixelsToPin } from '@/domain/pin'
 import type { Priority } from '@/domain/priority'
 import { useCreateReport } from '@/resources/report/mutations'
+import { useAssignCreatedReportMembers } from '@/resources/report/mentions'
 import Record from '@/components/widget/create/video/Record.vue'
 import Review from '@/components/widget/create/video/Review.vue'
 import Body from '@/components/widget/create/video/Body.vue'
@@ -20,6 +21,7 @@ const { confirm } = useConfirm()
 const store = useStore<WidgetStore>()
 const toast = useToast()
 const createReport = useCreateReport()
+const { assign } = useAssignCreatedReportMembers()
 
 // State
 const step = ref<'recording' | 'review' | 'body' | null>(null)
@@ -89,16 +91,18 @@ function onRetake() {
 function onNext() { step.value = 'body' }
 function onBack() { step.value = 'review' }
 
-async function onSubmit(body: string, priority: Priority) {
+async function onSubmit(body: string, priority: Priority, memberIds: string[]) {
     if (submitting.value || !_blob) return
     submitting.value = true
     try {
-        await createReport.mutateAsync({
+        const saved = await createReport.mutateAsync({
             body: body || '<p>(video)</p>',
             priority,
             pin: pendingPin.value,
             video: _blob,
         })
+        // Picked members + body mentions are assigned after the report exists.
+        await assign(saved.id, body, memberIds)
         toast.add({ title: 'Report submitted', color: 'success' })
         store.loadReports()
         cancel()

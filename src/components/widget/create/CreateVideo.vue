@@ -91,13 +91,14 @@ function onRetake() {
 function onNext() { step.value = 'body' }
 function onBack() { step.value = 'review' }
 
-async function onSubmit(body: string, priority: Priority, memberIds: string[]) {
+async function onSubmit(body: string, priority: Priority, memberIds: string[], dueAt: string | null) {
     if (submitting.value || !_blob) return
     submitting.value = true
     try {
         const saved = await createReport.mutateAsync({
             body: body || '<p>(video)</p>',
             priority,
+            dueAt,
             pin: pendingPin.value,
             video: _blob,
         })

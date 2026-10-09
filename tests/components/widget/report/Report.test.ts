@@ -41,6 +41,7 @@ vi.mock('@/composables/usePinAnchor', () => ({
 vi.mock('@/resources/report/mutations', () => ({
     useReportPriorityMutation: () => ({ mutateAsync: vi.fn(), isPending: { value: false } }),
     useUpdateReportBodyMutation: () => ({ mutateAsync: vi.fn(), isPending: { value: false } }),
+    useReportDueMutation: () => ({ mutateAsync: vi.fn(), isPending: { value: false } }),
 }))
 vi.mock('@/resources/report/mentions', () => ({ useMentionMemberSync: () => ({ sync: vi.fn() }) }))
 
@@ -144,6 +145,14 @@ vi.mock('@/components/shared/report/MemberPopover.vue', () => ({
         template: '<div class="member-popover-stub" :data-author-id="authorId" />',
     },
 }))
+vi.mock('@/components/shared/report/DuePopover.vue', () => ({
+    default: {
+        name: 'DuePopoverStub',
+        props: ['reportId', 'dueAt', 'status', 'canEdit', 'placement', 'size'],
+        emits: ['update:open', 'update:dueAt'],
+        template: '<div class="due-popover-stub" :data-can-edit="String(canEdit)" />',
+    },
+}))
 vi.mock('@/components/widget/report/ReportDetailsBrowser.vue', () => ({ default: { name: 'ReportDetailsBrowserStub', template: '<div />' } }))
 vi.mock('@/components/widget/report/ReportDetailsScreenshot.vue', () => ({ default: { name: 'ReportDetailsScreenshotStub', template: '<div />' } }))
 vi.mock('@/components/widget/report/ReportDetailsVideo.vue', () => ({ default: { name: 'ReportDetailsVideoStub', template: '<div />' } }))
@@ -189,6 +198,28 @@ describe('widget Report panel', () => {
 
         expect(wrapper.findComponent({ name: 'MemberPopoverStub' }).props('authorId')).toBe('a1')
     })
+
+    it('passes the active report id, status and editable gate to the due control', () => {
+        wrapper = mountPanel()
+
+        const due = wrapper.findComponent({ name: 'DuePopoverStub' })
+        expect(due.exists()).toBe(true)
+        expect(due.props('reportId')).toBe('r1')
+        expect(due.props('status')).toBe('progress')
+        expect(due.props('canEdit')).toBe(true)
+    })
+
+    it('passes canEdit=false to the due control for a non-author non-developer', () => {
+        const original = mockStore.auth.user
+        mockStore.auth.user = { id: 'u2', name: 'Ursula', email: 'ursula@example.com', role: 'user', isDeveloper: false, isAdmin: false }
+        try {
+            wrapper = mountPanel()
+
+            expect(wrapper.findComponent({ name: 'DuePopoverStub' }).props('canEdit')).toBe(false)
+        } finally {
+            mockStore.auth.user = original
+        }
+    })
 })
 
 /**
@@ -210,6 +241,21 @@ describe('widget Report status popover dismissal wiring', () => {
         expect(panelDismissible(wrapper)).toBe('false')
 
         status.vm.$emit('update:open', false)
+        await nextTick()
+        expect(panelDismissible(wrapper)).toBe('true')
+    })
+
+    it('locks panel dismissal while the due popover is open, then unlocks it', async () => {
+        wrapper = mountPanel()
+
+        expect(panelDismissible(wrapper)).toBe('true')
+
+        const due = wrapper.findComponent({ name: 'DuePopoverStub' })
+        due.vm.$emit('update:open', true)
+        await nextTick()
+        expect(panelDismissible(wrapper)).toBe('false')
+
+        due.vm.$emit('update:open', false)
         await nextTick()
         expect(panelDismissible(wrapper)).toBe('true')
     })

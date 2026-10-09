@@ -37,12 +37,13 @@ vi.mock('@/composables/useStore', () => ({
     useStore: () => mockStore,
 }))
 
-import { useUpdateReportBodyMutation, useDeleteReportMutation, useReportPriorityMutation } from '@/resources/report/mutations'
+import { useUpdateReportBodyMutation, useDeleteReportMutation, useReportPriorityMutation, useReportDueMutation, dueMutationError } from '@/resources/report/mutations'
 
 interface Mutations {
     updateBody: ReturnType<typeof useUpdateReportBodyMutation>
     deleteReport: ReturnType<typeof useDeleteReportMutation>
     priority: ReturnType<typeof useReportPriorityMutation>
+    due: ReturnType<typeof useReportDueMutation>
 }
 
 function mountRunner() {
@@ -50,7 +51,7 @@ function mountRunner() {
         defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     })
     const api = {
-        report: { update: vi.fn(), destroy: vi.fn(), priority: vi.fn() },
+        report: { update: vi.fn(), destroy: vi.fn(), priority: vi.fn(), due: vi.fn() },
     }
     // Populated synchronously by setup() during mount(), before mountRunner returns.
     let mutations!: Mutations
@@ -61,6 +62,7 @@ function mountRunner() {
                     updateBody: useUpdateReportBodyMutation(),
                     deleteReport: useDeleteReportMutation(),
                     priority: useReportPriorityMutation(),
+                    due: useReportDueMutation(),
                 }
                 return {}
             },
@@ -200,5 +202,71 @@ describe('useReportPriorityMutation', () => {
         expect(queryClient.getQueryState(reportKeys.lists())?.isInvalidated).toBe(true)
         expect(queryClient.getQueryState(reportKeys.detail('r1'))?.isInvalidated).toBe(true)
         expect(queryClient.getQueryState(reportKeys.aggregates())?.isInvalidated).toBe(true)
+    })
+})
+
+describe('useReportDueMutation', () => {
+    beforeEach(() => setMockStore(null, []))
+
+    it('PATCHes report/{id}/due_at and merges the fresh row into the active report and its list entry', async () => {
+        const { api, mutations } = mountRunner()
+        setMockStore({ id: 'r1', due_at: null }, [{ id: 'r1', due_at: null }])
+        api.report.due.mockResolvedValue({ ok: true, data: { id: 'r1', due_at: '2026-07-03T17:00:00Z', status: 'new' } })
+        await mutations.due.mutateAsync({ id: 'r1', due_at: '2026-07-03T17:00:00Z' })
+        await flushPromises()
+
+        expect(api.report.due).toHaveBeenCalledWith('r1', '2026-07-03T17:00:00Z')
+        expect(mockStore.report.active).toMatchObject({ id: 'r1', due_at: '2026-07-03T17:00:00Z' })
+        expect(mockStore.report.list[0]).toMatchObject({ id: 'r1', due_at: '2026-07-03T17:00:00Z' })
+    })
+
+    it('clears the deadline by PATCHing null', async () => {
+        const { api, mutations } = mountRunner()
+        setMockStore({ id: 'r1', due_at: '2026-07-03T17:00:00Z' }, [])
+        api.report.due.mockResolvedValue({ ok: true, data: { id: 'r1', due_at: null } })
+        await mutations.due.mutateAsync({ id: 'r1', due_at: null })
+        await flushPromises()
+
+        expect(api.report.due).toHaveBeenCalledWith('r1', null)
+        expect(mockStore.report.active).toMatchObject({ id: 'r1', due_at: null })
+    })
+
+    it('invalidates report lists, detail and aggregates', async () => {
+        const { api, mutations, queryClient } = mountRunner()
+        api.report.due.mockResolvedValue({ ok: true, data: { id: 'r1', due_at: '2026-07-03T17:00:00Z' } })
+        queryClient.setQueryData(reportKeys.lists(), { data: [] })
+        queryClient.setQueryData(reportKeys.detail('r1'), { id: 'r1' })
+        queryClient.setQueryData(reportKeys.aggregates(), {})
+        await mutations.due.mutateAsync({ id: 'r1', due_at: '2026-07-03T17:00:00Z' })
+        await flushPromises()
+        expect(queryClient.getQueryState(reportKeys.lists())?.isInvalidated).toBe(true)
+        expect(queryClient.getQueryState(reportKeys.detail('r1'))?.isInvalidated).toBe(true)
+        expect(queryClient.getQueryState(reportKeys.aggregates())?.isInvalidated).toBe(true)
+    })
+
+    it('throws with the failed response attached when the response is not ok', async () => {
+        const { api, mutations } = mountRunner()
+        const bad = { ok: false, status: 422, data: null }
+        api.report.due.mockResolvedValue(bad)
+        await expect(mutations.due.mutateAsync({ id: 'r1', due_at: 'nope' })).rejects.toMatchObject({
+            message: 'Failed to update due date',
+            response: bad,
+        })
+    })
+})
+
+describe('dueMutationError', () => {
+    it('uses the server message for a 422', () => {
+        expect(dueMutationError({ response: { status: 422, data: { message: 'The due at must be a valid date.' } } }))
+            .toBe('The due at must be a valid date.')
+    })
+
+    it('maps a 403 to a permission message', () => {
+        expect(dueMutationError({ response: { status: 403 } })).toBe('You do not have permission to change the due date')
+    })
+
+    it('falls back for an unmapped error, honouring a custom fallback', () => {
+        expect(dueMutationError(new Error('x'))).toBe('Could not update due date')
+        expect(dueMutationError(new Error('x'), 'Custom')).toBe('Custom')
     })
 })

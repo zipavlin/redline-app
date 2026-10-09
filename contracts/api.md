@@ -16,7 +16,7 @@ ID format: UUID strings for all resources.
 
 - `checkUser()` gates: any authenticated user passes `LIST`/`VIEW`/`CREATE`
   unless a role rule applies; `EDIT` = author only; `DELETE` = owner or admin;
-  `UPDATE` (status/move/media/priority) = developer+ (admin counts as developer) or
+  `UPDATE` (status/move/media/priority/due) = developer+ (admin counts as developer) or
   owner. Pending users and guests are blocked except guests may `CREATE` a
   report in guest mode. See `auth.md`.
 - `checkFeature()`: `screenshots`, `videos`, `comments` endpoints abort 403
@@ -222,8 +222,10 @@ Grammar: `filter[]` `include[]` `sort[]` `paginate[]`. All authenticated roles
 see all reports (no ownership scoping) unless `filter[mine]=1`.
 
 Response: pagination envelope; each row base = `id`, `status`, `priority`
-(default `"normal"`), `created_at`. `priority` is a base-row field, never
-include-gated. `body`, `title`, `pin`, `element`, `url`, `location`, `browser`, `author`,
+(default `"normal"`), `due_at` (`null` when unset), `created_at`. `priority` and
+`due_at` are base-row fields, never include-gated. `due_at` is always serialized as
+the true UTC instant (RFC3339 with `Z`) regardless of the host application's
+configured timezone. `body`, `title`, `pin`, `element`, `url`, `location`, `browser`, `author`,
 `screenshot`, `video`, `comments`, `*_count`/`*_exists` projections are
 include-gated.
 
@@ -250,11 +252,13 @@ Body:
   },
   "element": "div.product-card",              // optional string
   "browser": { "...": "..." },                // optional object (any keys)
-  "priority": "normal"                        // optional, low|normal|high|critical
+  "priority": "normal",                       // optional, low|normal|high|critical
+  "due_at": "2026-07-03T17:00:00Z"            // optional RFC3339; any offset, normalized to UTC server-side
 }
 ```
 - `201` - the created report row (`fresh()->toArray()`): `id`, `status: "new"`,
-  `priority` (the submitted value, or `"normal"` when omitted), `author_id`,
+  `priority` (the submitted value, or `"normal"` when omitted),
+  `due_at` (the submitted value, or `null` when omitted), `author_id`,
   `url`, `location`, `body`, `pin`, `element`, `browser`,
   `created_at`, `updated_at`. No includes are applied to this response.
 - Guest mode: anonymous POST /report is attributed to the shared Guest user
@@ -326,6 +330,15 @@ at any time - no transition graph or constraint (unlike `status`).
 - `403` - forbidden (caller is neither developer+ nor the report owner).
 - `422` - validation (missing or unknown enum value).
 
+### PATCH /report/{report}/due_at - cookie | bearer (developer+ or owner)
+Body: `{ "due_at": <rfc3339> | null }`. A timestamp sets the triage deadline;
+`null` clears it. Any RFC3339 offset is accepted and normalized to UTC
+server-side (`Carbon::parse()->utc()`), so the stored value is always UTC.
+
+- `200` - updated report row (fresh, no includes; always carries `due_at`).
+- `403` - forbidden (caller is neither developer+ nor the report owner).
+- `422` - date validation (unparseable value).
+
 ### Report query schema
 - filters: `status` (eq/not/like/in/not_in/null/not_null; values accept the
   groups `unresolved` → `new,noticed,progress` and `resolved` →
@@ -335,10 +348,17 @@ at any time - no transition graph or constraint (unlike `status`).
   (date ops incl. `from`/`to`), `location` (string ops), `author`
   (eq/not/in/not_in/exists on id; relation attribute `author.name` only -
   `author.email:like` 422s), `search` (like, OR body/location), `mine` (eq,
-  `author_id` = current user; truthy value), `screenshot` (exists),
+  `author_id` = current user; truthy value), `due` (closed enum
+  `overdue|due_soon|none`, computed against `now()` at request time; `overdue`
+  / `due_soon` apply to OPEN statuses only - `new|noticed|progress` - while
+  `none` = no `due_at` and is NOT status-scoped; unknown value 422s), `due_at`
+  (raw date ops incl. `from`/`to`/`null`/`not_null`; values must be `Y-m-d` or
+  `Y-m-d H:i:s`, NOT full ISO-8601 - pre-existing lexical-compare behavior;
+  power-user surface the UI never sends), `screenshot` (exists),
   `video` (exists), `comments` (exists).
 - sortable: `created_at`, `status`, `priority` (enum-ordered, not lexical -
-  `sort[priority]=desc` puts `critical` first), `location`
+  `sort[priority]=desc` puts `critical` first), `due_at` (NULLs sort LAST in
+  both directions), `location`
   (default `created_at desc, id desc`).
 - includable: `title`, `body`, `pin`, `element`, `url`, `location`; `browser`
   (developer gate); `author` (attrs `id,name,email`, default `id,name`);

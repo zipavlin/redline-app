@@ -162,6 +162,32 @@ export function useReportPriorityMutation() {
     })
 }
 
+/**
+ * PATCH report/{id}/due_at with a new deadline (or null to clear it). The
+ * failure carries the raw response so `dueMutationError` can map 422/403 to a
+ * toast message - unlike the priority mutation, whose failures are not surfaced.
+ */
+export function useReportDueMutation() {
+    const api = useApi()
+    const qc = useQueryClient()
+    const store = useStore<SharedStore & ReportStoreLike>()
+    return useMutation({
+        mutationFn: async ({ id, due_at: dueAt }: { id: string; due_at: string | null }): Promise<Report> => {
+            const res = await api.report.due(id, dueAt)
+            if (!res.ok) {
+                throw Object.assign(new Error('Failed to update due date'), { response: res })
+            }
+            return res.data
+        },
+        onSuccess: (data, { id }) => {
+            mergeReportIntoStore(store, data, id)
+            qc.invalidateQueries({ queryKey: reportKeys.lists() })
+            qc.invalidateQueries({ queryKey: reportKeys.detail(id) })
+            qc.invalidateQueries({ queryKey: reportKeys.aggregates() })
+        },
+    })
+}
+
 interface MemberMutationVariables {
     id: string
     userIds: string[]
@@ -288,9 +314,18 @@ export function memberMutationError(error: unknown, fallback = 'Could not update
     return fallback
 }
 
+/** Map a due-date mutation failure to a user-facing toast title (422/403/fallback). */
+export function dueMutationError(error: unknown, fallback = 'Could not update due date'): string {
+    const response = (error as { response?: { status?: number; data?: { message?: string } } })?.response
+    if (response?.status === 422 && response.data?.message) return response.data.message
+    if (response?.status === 403) return 'You do not have permission to change the due date'
+    return fallback
+}
+
 export interface CreateReportInput {
     body: string
     priority?: Priority
+    dueAt?: string | null
     pin?: { x: number; y: number; scroll_x?: number; scroll_y?: number } | null
     element?: Element | null
     screenshot?: Blob | null
@@ -311,6 +346,7 @@ export function useCreateReport() {
             }
 
             if (input.priority) payload.priority = input.priority
+            if (input.dueAt) payload.due_at = input.dueAt
 
             if (input.element instanceof Element) {
                 const selector = getCssSelector(input.element)

@@ -19,6 +19,26 @@
     --ui-bg-muted: var(--ui-color-neutral-900);
 }
 
+/*
+ * Bind the surface text colour to the theme token.
+ *
+ * Nuxt UI's token blocks define `--ui-text` but never the `color` property, so a
+ * surface only picks up the themed text colour if something sets it: the widget's
+ * shadow root otherwise inherits `color` from the host page across the shadow
+ * boundary, and the dashboard body falls back to the browser default (black).
+ * Components whose theme sets no text utility of its own - UCalendar's unselected
+ * day cells are the reported case - then paint that inherited colour on our
+ * surface, which is black-on-black on a dark widget embedded in a light host page.
+ *
+ * `[data-redline-root]` is the widget surface that also carries the `.dark` class,
+ * so the token resolves in the correct mode scope; `body` is the dashboard's root.
+ * Every other component keeps its own explicit text colour and is unaffected.
+ */
+[data-redline-root],
+body {
+    color: var(--ui-text);
+}
+
 /* Custom animations not provided by Nuxt UI */
 @theme {
     --animate-rec-pulse: redline-rec-pulse 1s ease-in-out infinite;

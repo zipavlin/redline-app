@@ -42,6 +42,10 @@ export function makeReportApi(client: ApiClient) {
             return client.patch<Report>(`report/${id}/priority`, { priority })
         },
 
+        due(id: string, dueAt: string | null): Promise<ApiResult<Report>> {
+            return client.patch<Report>(`report/${id}/due_at`, { due_at: dueAt })
+        },
+
         addMembers(id: string, userIds: string[]): Promise<ApiResult<MembersResponse>> {
             return client.post<MembersResponse>(`report/${id}/member`, { user_ids: userIds })
         },

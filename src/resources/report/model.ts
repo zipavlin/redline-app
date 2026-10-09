@@ -13,6 +13,7 @@ export interface Report {
     id: string
     status: Status | string
     priority: Priority | string
+    due_at?: string | null
     created_at: string
     title?: string | null
     body?: string
@@ -64,6 +65,7 @@ export interface DashboardReportRow {
     id: string
     status: Status
     priority: Priority
+    due_at?: string | null
     created_at: string
     title?: string
     body?: string

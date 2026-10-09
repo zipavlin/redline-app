@@ -18,9 +18,13 @@ import { DASHBOARD_LIST_INCLUDE, DASHBOARD_DETAIL_INCLUDE } from '@/resources/re
 
 export type ReportStatusGroup = 'all' | 'unresolved' | 'resolved'
 
+/** Dashboard due-date filter - maps to the backend's virtual `filter[due]` enum. */
+export type ReportDueFilter = 'any' | 'overdue' | 'due_soon' | 'none'
+
 export interface ReportFilter {
     statusGroup: ReportStatusGroup
     priority: 'any' | Priority
+    dueState: ReportDueFilter
     search: string
     mine: boolean
     assignedToMe: boolean
@@ -51,6 +55,7 @@ export function reportSlice(redline: RedlineContext, auth: AuthState) {
         filter: {
             statusGroup: 'all',
             priority: 'any',
+            dueState: 'any',
             search: '',
             mine: false,
             assignedToMe: false,
@@ -73,6 +78,8 @@ export function reportSlice(redline: RedlineContext, auth: AuthState) {
         const parts: ListParams[] = []
         if (report.filter.statusGroup !== 'all') parts.push(filterParams('status', report.filter.statusGroup))
         if (report.filter.priority !== 'any') parts.push(filterParams('priority', report.filter.priority))
+        // Backend's virtual `due` enum; the raw filter[due_at] power-user ops are never sent by the UI.
+        if (report.filter.dueState !== 'any') parts.push(filterParams('due', report.filter.dueState))
         if (report.filter.search) parts.push(filterParams('body', report.filter.search, 'like'))
         if (report.filter.mine) parts.push(filterParams('mine', '1'))
         // Backend removed filter[assigned]; "assigned to me" is client-side now.

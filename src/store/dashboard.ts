@@ -12,7 +12,7 @@ import { reportSlice } from '@/store/dashboard/report'
 import { usersSlice } from '@/store/dashboard/users'
 import type { RedlineContext } from '@/composables/useApi'
 
-export type { ReportStatusGroup, ReportFilter } from '@/store/dashboard/report'
+export type { ReportStatusGroup, ReportFilter, ReportDueFilter } from '@/store/dashboard/report'
 export type { UserStatusGroup, UserFilter } from '@/store/dashboard/users'
 
 export const useDashboardStore = defineStore('redline-dashboard', () => {

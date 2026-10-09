@@ -121,6 +121,31 @@ describe('reportSlice', () => {
         expect(reportFilterParams()['filter[priority]']).toBeUndefined()
     })
 
+    it('defaults dueState to "any" with no filter[due] param', () => {
+        const { report, reportFilterParams } = reportSlice(redline, createMockAuth())
+
+        expect(report.filter.dueState).toBe('any')
+        expect(reportFilterParams()['filter[due]']).toBeUndefined()
+    })
+
+    it.each(['overdue', 'due_soon', 'none'] as const)('maps dueState "%s" to filter[due]', (value) => {
+        const { report, reportFilterParams } = reportSlice(redline, createMockAuth())
+        report.filter.dueState = value
+        const params = reportFilterParams()
+
+        expect(params['filter[due]']).toBe(value)
+        // The UI never sends the raw filter[due_at] power-user ops.
+        expect(Object.keys(params).some(key => key.includes('due_at'))).toBe(false)
+    })
+
+    it('omits the due filter when dueState is reset to "any"', () => {
+        const { report, reportFilterParams } = reportSlice(redline, createMockAuth())
+        report.filter.dueState = 'overdue'
+        report.filter.dueState = 'any'
+
+        expect(reportFilterParams()['filter[due]']).toBeUndefined()
+    })
+
     it('openReport loads report detail and sets active', async () => {
         const { report, openReport } = reportSlice(redline, createMockAuth())
         await openReport('1')

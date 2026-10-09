@@ -16,6 +16,7 @@ import type { Priority } from '@/domain/priority'
 import { ScreenshotCapture } from '@/core/capture/screenshot'
 import Editor from '@/components/shared/ui/Editor.vue'
 import MemberPopover from '@/components/shared/report/MemberPopover.vue'
+import DuePopover from '@/components/shared/report/DuePopover.vue'
 import PriorityPopover from '@/components/shared/report/PriorityPopover.vue'
 import {
     commandsSuggestionItems,
@@ -41,6 +42,9 @@ const isPasting = ref(false)
 // Draft member selection - kept local, only persisted after the report exists.
 const selectedMemberIds = ref<string[]>([])
 const isMembersOpen = ref(false)
+// Draft deadline - guests may set due_at at create (mirrors priority), so it is ungated.
+const selectedDueAt = ref<string | null>(null)
+const isDueOpen = ref(false)
 // The composer popover closes on an outside pointerdown, which fires before a nested
 // popover's option click - keep it non-dismissible while any nested popover is open.
 const isPriorityOpen = ref(false)
@@ -166,6 +170,7 @@ async function onSubmit() {
         const saved = await createReport.mutateAsync({
             body: body.value,
             priority: priority.value,
+            dueAt: selectedDueAt.value,
             pin: store.report.pending?.pin ?? null,
             element: store.report.pending?.element ?? null,
             screenshot,
@@ -231,6 +236,8 @@ function _enter() {
     screenshotCapture.value = new ScreenshotCapture()
     selectedMemberIds.value = []
     isMembersOpen.value = false
+    selectedDueAt.value = null
+    isDueOpen.value = false
     isPriorityOpen.value = false
 }
 
@@ -253,7 +260,7 @@ function _onPendingScroll() {
         v-model:open="open"
         :reference="reference"
         :content="{ side, align: 'start', sideOffset: 12 }"
-        :dismissible="!isMembersOpen && !isPriorityOpen"
+        :dismissible="!isMembersOpen && !isDueOpen && !isPriorityOpen"
         :ui="{ content: 'w-80' }"
         data-component="create-report"
     >
@@ -322,6 +329,14 @@ function _onPendingScroll() {
 
                         <!-- Priority -->
                         <PriorityPopover v-model="priority" v-model:open="isPriorityOpen" />
+
+                        <!-- Due -->
+                        <DuePopover
+                            v-model:due-at="selectedDueAt"
+                            v-model:open="isDueOpen"
+                            placement="top-start"
+                            size="sm"
+                        />
                     </div>
                     <UButton
                         color="success"

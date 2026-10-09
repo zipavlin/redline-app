@@ -53,6 +53,17 @@ vi.mock('@/components/shared/report/MemberPopover.vue', () => ({
             </div>`,
     },
 }))
+vi.mock('@/components/shared/report/DuePopover.vue', () => ({
+    default: {
+        name: 'DuePopoverStub',
+        props: ['dueAt', 'open', 'placement', 'size'],
+        emits: ['update:dueAt', 'update:open'],
+        template: `
+            <div class="report-due-stub">
+                <button class="due-set" @click="$emit('update:dueAt', '2026-06-15T22:00:00.000Z')">set due</button>
+            </div>`,
+    },
+}))
 
 /**
  * The shared Editor is explicitly imported by CreateReport; replace it with a stub that
@@ -335,6 +346,33 @@ describe('CreateReport priority', () => {
 
         await submitComposer(mounted.wrapper, false)
         expect(mounted.api.report.store).toHaveBeenCalledWith(expect.objectContaining({ priority: 'high' }))
+    })
+})
+
+describe('CreateReport due date', () => {
+    it('includes due_at in the payload when a deadline is selected', async () => {
+        stubCanvas()
+        const mounted = mountComposerWithMembers()
+        wrapper = mounted.wrapper
+        await flushPromises()
+
+        await wrapper.find('.due-set').trigger('click')
+        await nextTick()
+
+        await submitComposer(mounted.wrapper, false)
+        expect(mounted.api.report.store).toHaveBeenCalledWith(
+            expect.objectContaining({ due_at: '2026-06-15T22:00:00.000Z' }),
+        )
+    })
+
+    it('omits due_at from the payload when no deadline is selected', async () => {
+        stubCanvas()
+        const mounted = mountComposerWithMembers()
+        wrapper = mounted.wrapper
+
+        await submitComposer(mounted.wrapper, false)
+
+        expect(mounted.api.report.store.mock.calls[0][0]).not.toHaveProperty('due_at')
     })
 })
 

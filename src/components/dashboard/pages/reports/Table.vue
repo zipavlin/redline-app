@@ -3,11 +3,12 @@ import type { DashboardReportRow } from '@/resources/report/model'
 import { computed, h, resolveComponent } from 'vue'
 import type { TableColumn, TableRow } from '@nuxt/ui'
 import { useStore } from '@/composables/useStore'
-import type { DashboardStore } from '@/store/dashboard'
+import type { DashboardStore, ReportDueFilter } from '@/store/dashboard'
 import { useDashboardTable } from '@/composables/useDashboardTable'
 import { getFormattedDatetime, getRelativeTime } from '@/core/datetime'
 import { statusColor, statusLabel } from '@/domain/status'
 import { PRIORITIES, priorityColor, priorityLabel, type Priority } from '@/domain/priority'
+import { dueColor, dueIcon, dueShortLabel, dueState, isDueAtUsable } from '@/domain/due'
 import { useReportList, useReportAggregate } from '@/resources/report/queries'
 import { useMemberCandidates } from '@/resources/user/queries'
 import ReportFilterTags from '@/components/dashboard/pages/reports/ReportFilterTags.vue'
@@ -94,6 +95,18 @@ const priorityFilter = computed({
     set: (v) => { store.report.filter.priority = v as 'any' | Priority },
 })
 
+const dueItems = computed(() => [
+    { label: 'Any', value: 'any' },
+    { label: 'Overdue', value: 'overdue' },
+    { label: 'Due soon', value: 'due_soon' },
+    { label: 'No due date', value: 'none' },
+])
+
+const dueFilter = computed({
+    get: () => store.report.filter.dueState,
+    set: (v) => { store.report.filter.dueState = v as ReportDueFilter },
+})
+
 const search = computed({
     get: () => store.report.filter.search,
     set: (v) => { store.report.filter.search = v },
@@ -126,7 +139,8 @@ const hasAdvancedFilters = computed(() =>
     store.report.filter.mine || store.report.filter.hasMedia || store.report.filter.hasComments
     || store.report.filter.assignedToMe || store.report.filter.memberIds.length > 0
     || !!store.report.filter.userId || !!store.report.filter.dateFrom || !!store.report.filter.dateTo
-    || !!store.report.filter.location || store.report.filter.priority !== 'any',
+    || !!store.report.filter.location || store.report.filter.priority !== 'any'
+    || store.report.filter.dueState !== 'any',
 )
 
 // Shared table behavior (selection, keyboard nav, sort, column visibility).
@@ -137,6 +151,7 @@ const hasAdvancedFilters = computed(() =>
 const toggleableColumns = [
     { id: 'status', label: 'Status' },
     { id: 'priority', label: 'Priority' },
+    { id: 'due_at', label: 'Due' },
     { id: 'title', label: 'Report' },
     { id: 'location', label: 'URL' },
     { id: 'filed_by', label: 'Filed by' },
@@ -156,7 +171,7 @@ const {
     page: store.report.page,
     sort: store.report,
     resetSource: () => [
-        store.report.filter.statusGroup, store.report.filter.priority, store.report.filter.search, store.report.filter.mine,
+        store.report.filter.statusGroup, store.report.filter.priority, store.report.filter.dueState, store.report.filter.search, store.report.filter.mine,
         store.report.filter.hasMedia, store.report.filter.hasComments, store.report.filter.userId,
         store.report.filter.assignedToMe, store.report.filter.memberIds,
         store.report.filter.dateFrom, store.report.filter.dateTo, store.report.filter.location,
@@ -187,6 +202,27 @@ const columns: TableColumn<DashboardReportRow>[] = [
             { variant: 'subtle', color: priorityColor(row.original.priority) },
             () => priorityLabel(row.original.priority),
         ),
+    },
+    {
+        accessorKey: 'due_at',
+        header: sortableHeader('due_at', 'Due'),
+        cell: ({ row }) => {
+            const dueAt = row.original.due_at
+            if (!isDueAtUsable(dueAt)) return h('span', { class: 'text-dimmed' }, '–')
+            const state = dueState(dueAt, row.original.status)
+            const tooltip = state === 'overdue'
+                ? `${getFormattedDatetime(dueAt)} · overdue`
+                : getFormattedDatetime(dueAt)
+            return h(
+                UTooltip,
+                { text: tooltip },
+                () => h(UBadge, {
+                    variant: 'subtle',
+                    color: dueColor(state),
+                    leadingIcon: dueIcon(state),
+                }, () => dueShortLabel(dueAt)),
+            )
+        },
     },
     {
         /**
@@ -279,6 +315,9 @@ const columns: TableColumn<DashboardReportRow>[] = [
                                 </UFormField>
                                 <UFormField label="Priority">
                                     <USelectMenu v-model="priorityFilter" :items="priorityItems" value-key="value" class="w-full" />
+                                </UFormField>
+                                <UFormField label="Due">
+                                    <USelectMenu v-model="dueFilter" :items="dueItems" value-key="value" class="w-full" />
                                 </UFormField>
                                 <UFormField v-if="showMemberFilter" label="Member">
                                     <USelectMenu v-model="memberIds" :items="memberItems" value-key="value" multiple placeholder="Anyone" class="w-full" />

@@ -14,6 +14,7 @@ import Prose from '@/components/shared/ui/Prose.vue'
 import InlineEditor from '@/components/shared/ui/InlineEditor.vue'
 import PopoverMenu from '@/components/shared/ui/PopoverMenu.vue'
 import MemberPopover from '@/components/shared/report/MemberPopover.vue'
+import DuePopover from '@/components/shared/report/DuePopover.vue'
 import StatusChanger from '@/components/shared/ui/StatusChanger.vue'
 import ReportDetailsBrowser from '@/components/widget/report/ReportDetailsBrowser.vue'
 import ReportDetailsScreenshot from '@/components/widget/report/ReportDetailsScreenshot.vue'
@@ -51,12 +52,9 @@ const isAuthor = computed(() => !!store.auth.user && store.auth.user.id === acti
 // Body editing is author-only; delete is author OR admin (mirror backend policy).
 const canEdit = computed(() => isAuthor.value)
 const canDelete = computed(() => !!store.auth.user && (store.auth.user.isAdmin || isAuthor.value))
-// Member editing mirrors the backend UPDATE gate: author OR developer/admin.
-const canEditMembers = computed(() => !!store.auth.user && (store.auth.user.isDeveloper || isAuthor.value))
-// Status change permission: author OR developer (mirrors the widget's canChangeStatus).
-const canChangeStatus = computed(() => !!store.auth.user && (store.auth.user.isDeveloper || isAuthor.value))
-// Priority change mirrors the status gate: author OR developer/admin.
-const canChangePriority = computed(() => !!store.auth.user && (store.auth.user.isDeveloper || isAuthor.value))
+// Developer/admin or the author of the active report - the shared backend UPDATE gate
+// for status, priority, members and due date.
+const canManageReport = computed(() => !!store.auth.user && (store.auth.user.isDeveloper || isAuthor.value))
 const optionsItems = computed(() => {
     const items: {
         label: string
@@ -180,8 +178,14 @@ function openDetails(panel: DetailsPanel) {
                     <MemberPopover
                         :report-id="store.report.active.id"
                         :members="store.report.active.members ?? []"
-                        :can-edit="canEditMembers"
+                        :can-edit="canManageReport"
                         :author-id="activeAuthorId"
+                    />
+                    <DuePopover
+                        :report-id="store.report.active.id"
+                        :due-at="store.report.active.due_at ?? null"
+                        :status="store.report.active.status"
+                        :can-edit="canManageReport"
                     />
                     <PopoverMenu
                         v-if="canEdit || canDelete"
@@ -205,7 +209,7 @@ function openDetails(panel: DetailsPanel) {
                     <template #tag>
                         <PriorityBadge
                             :priority="store.report.active.priority"
-                            :editable="canChangePriority"
+                            :editable="canManageReport"
                             :loading="priorityMutation.isPending.value"
                             @change="setPriority"
                         />
@@ -301,7 +305,7 @@ function openDetails(panel: DetailsPanel) {
                         />
                     </UTooltip>
                     <StatusChanger
-                        :authorized="canChangeStatus"
+                        :authorized="canManageReport"
                         :status="store.report.active.status"
                         :role="store.auth.user?.role ?? null"
                         :loading="statusMutation.isPending.value"

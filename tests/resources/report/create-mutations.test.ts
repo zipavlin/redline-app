@@ -62,6 +62,26 @@ describe('useCreateReport', () => {
         expect(saved).toEqual(savedReport)
     })
 
+    it('adds a non-empty dueAt to the payload as due_at', async () => {
+        const { api, result } = mountCreate()
+        api.report.store.mockResolvedValue(okStore())
+        await result.create.mutateAsync({ body: 'x', dueAt: '2026-07-03T17:00:00Z' })
+        await flushPromises()
+
+        const payload = api.report.store.mock.calls[0][0] as Record<string, unknown>
+        expect(payload.due_at).toBe('2026-07-03T17:00:00Z')
+    })
+
+    it('omits due_at when dueAt is not set', async () => {
+        const { api, result } = mountCreate()
+        api.report.store.mockResolvedValue(okStore())
+        await result.create.mutateAsync({ body: 'x' })
+        await flushPromises()
+
+        const payload = api.report.store.mock.calls[0][0] as Record<string, unknown>
+        expect(payload.due_at).toBeUndefined()
+    })
+
     it('passes the pin through untouched when there is no element', async () => {
         const { api, result } = mountCreate()
         api.report.store.mockResolvedValue(okStore())

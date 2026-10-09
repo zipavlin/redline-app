@@ -79,12 +79,22 @@ are per-resource; a disallowed operator 422s with a message naming the target.
   - `resolved` → every closed status (`resolved`, `done`)
   - `done` → exactly `done`
   - so `filter[status]=resolved` is a superset of `filter[status]=done`.
+- **Virtual filters** (report): some targets are not columns but computed
+  predicates. `filter[mine]=1` scopes to the caller's own reports. `filter[due]`
+  is a closed enum (`overdue|due_soon|none`) evaluated against `now()` at request
+  time: `overdue` (deadline passed) and `due_soon` (within the next 24h) apply to
+  open reports only (`new`, `noticed`, `progress`), while `none` (no `due_at`) is
+  not status-scoped. An unknown value 422s like any other whitelist miss.
 
 ## sort[] semantics
 
 - A schema may define a target's sort as an ordered **expression** rather than a
   lexical column sort (e.g. an enum-ordered column where `desc` puts the highest
   enum first). Per-resource ordering is documented in `api.md`.
+- **Null ordering**: a schema may mark a target nulls-last (`sortNullsLast`).
+  The engine emits a leading `(<col> IS NULL) ASC` co-term before the real key,
+  so rows without a value sort **last in both `asc` and `desc`** - portable
+  across SQLite and MySQL, which disagree on default NULL placement.
 
 ## include[] semantics
 

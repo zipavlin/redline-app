@@ -65,6 +65,7 @@ const selfMember = computed<Member | null>(() => {
     const user = store.auth.user
     return user ? memberFromUser({ id: user.id, name: user.name }) : null
 })
+const avatarSize = computed<string>(() => props.size === 'sm' ? 'xs' : '2xs')
 
 /**
  * The candidate query is lazy and 403s for non-admins; when it has no rows fall
@@ -162,7 +163,7 @@ async function removeServerMember(member: Member): Promise<void> {
             >
                 <UAvatarGroup
                     v-if="displayedMembers.length"
-                    size="2xs"
+                    :size="avatarSize"
                     :max="3"
                     :ui="{ base: 'ring-muted bg-muted' }"
                 >

@@ -6,7 +6,7 @@
  */
 import { computed } from 'vue'
 import { useStore } from '@/composables/useStore'
-import type { DashboardStore } from '@/store/dashboard'
+import type { DashboardStore, ReportDueFilter } from '@/store/dashboard'
 import { priorityLabel } from '@/domain/priority'
 
 const props = defineProps<{
@@ -17,6 +17,12 @@ const props = defineProps<{
 const store = useStore<DashboardStore>()
 
 interface Tag { key: string; label: string; clear: () => void }
+
+const DUE_FILTER_LABELS: Record<Exclude<ReportDueFilter, 'any'>, string> = {
+    overdue: 'Overdue',
+    due_soon: 'Due soon',
+    none: 'No due date',
+}
 
 // Computed
 const authorName = computed(() => props.authors.find(a => a.id === store.report.filter.userId)?.name ?? 'Unknown')
@@ -106,6 +112,16 @@ const tags = computed<Tag[]>(() => {
             },
         })
     }
+    if (store.report.filter.dueState !== 'any') {
+        const dueFilterValue = store.report.filter.dueState
+        t.push({
+            key: 'due',
+            label: DUE_FILTER_LABELS[dueFilterValue],
+            clear: () => {
+                store.report.filter.dueState = 'any'
+            },
+        })
+    }
     if (store.report.filter.dateFrom || store.report.filter.dateTo) {
         t.push({
             key: 'date',
@@ -135,6 +151,7 @@ function clearAll() {
     store.report.filter.userId = null
     store.report.filter.location = null
     store.report.filter.priority = 'any'
+    store.report.filter.dueState = 'any'
     store.report.filter.dateFrom = null
     store.report.filter.dateTo = null
 }

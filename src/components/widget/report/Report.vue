@@ -25,6 +25,7 @@ import ReportDetailsVideo from '@/components/widget/report/ReportDetailsVideo.vu
 import ReportDetailsPagination from '@/components/widget/report/ReportDetailsPagination.vue'
 import ReportDetailsComments from '@/components/widget/report/ReportDetailsComments.vue'
 import MemberPopover from '@/components/shared/report/MemberPopover.vue'
+import DuePopover from '@/components/shared/report/DuePopover.vue'
 import PopoverAsModal from '@/components/shared/ui/PopoverAsModal.vue'
 import PopoverMenu from '@/components/shared/ui/PopoverMenu.vue'
 import { useToast } from '@nuxt/ui/composables/useToast'
@@ -45,6 +46,9 @@ const isDeleteConfirmOpen = ref(false)
 const isDeleteLoading = ref(false)
 const isMenuOpen = ref(false)
 const isMembersOpen = ref(false)
+// Same nested-popover hazard as members/priority/status: lock the panel while the
+// due popover is open or the preset click never commits.
+const isDueOpen = ref(false)
 // The panel closes on an outside pointerdown, which fires before the priority
 // option's click - keep it non-dismissible while that nested popover is open.
 const isPriorityOpen = ref(false)
@@ -95,12 +99,9 @@ const isAuthor = computed(() => !!store.auth.user && store.auth.user.id === acti
 // Body editing is author-only; delete is author OR admin (mirror backend policy).
 const canEdit = computed(() => isAuthor.value)
 const canDelete = computed(() => !!store.auth.user && (store.auth.user.isAdmin || isAuthor.value))
-// Status change permission is unchanged: author OR developer.
-const canChangeStatus = computed(() => !!store.auth.user && (store.auth.user.isDeveloper || isAuthor.value))
-// Priority change mirrors the status gate: author OR developer/admin.
-const canChangePriority = computed(() => !!store.auth.user && (store.auth.user.isDeveloper || isAuthor.value))
-// Member editing permission mirrors the backend UPDATE gate: author OR developer/admin.
-const canEditMembers = computed(() => !!store.auth.user && (store.auth.user.isDeveloper || isAuthor.value))
+// Developer/admin or the author of the active report - the shared backend UPDATE gate
+// for status, priority, members and due date.
+const canManageReport = computed(() => !!store.auth.user && (store.auth.user.isDeveloper || isAuthor.value))
 const hasElement = computed(() => store.report.active?.element instanceof Element)
 
 /**
@@ -114,6 +115,7 @@ const dismissible = computed(() =>
     !isEditing.value
     && !isMenuOpen.value
     && !isMembersOpen.value
+    && !isDueOpen.value
     && !isPriorityOpen.value
     && !isStatusOpen.value
     && detailsPanel.value !== 'comments',
@@ -146,6 +148,7 @@ watch(() => store.report.active, (report) => {
         detailsPanel.value = null
         isMenuOpen.value = false
         isMembersOpen.value = false
+        isDueOpen.value = false
         isPriorityOpen.value = false
         isStatusOpen.value = false
         isEditing.value = false
@@ -338,13 +341,22 @@ onMounted(() => {
                     </UUser>
                 </template>
                 <template #header-actions>
+                    <DuePopover
+                        :report-id="store.report.active.id"
+                        :due-at="store.report.active.due_at ?? null"
+                        :status="store.report.active.status"
+                        :can-edit="canManageReport"
+                        size="xs"
+                        @update:open="(dueOpen: boolean) => isDueOpen = dueOpen"
+                    />
                     <MemberPopover
                         :report-id="store.report.active.id"
                         :members="store.report.active.members ?? []"
-                        :can-edit="canEditMembers"
+                        :can-edit="canManageReport"
                         :author-id="activeAuthorId"
                         @update:open="(membersOpen: boolean) => isMembersOpen = membersOpen"
                     />
+
                     <!-- edit/delete -->
                     <PopoverMenu
                         v-if="canEdit || canDelete"
@@ -377,7 +389,7 @@ onMounted(() => {
                             <PriorityBadge
                                 v-model:open="isPriorityOpen"
                                 :priority="store.report.active.priority"
-                                :editable="canChangePriority"
+                                :editable="canManageReport"
                                 :loading="priorityMutation.isPending.value"
                                 @change="setPriority"
                             />
@@ -477,7 +489,7 @@ onMounted(() => {
                 </template>
                 <template #footer>
                     <StatusChanger
-                        :authorized="canChangeStatus"
+                        :authorized="canManageReport"
                         v-model:open="isStatusOpen"
                         :status="store.report.active.status"
                         :role="store.auth.user?.role ?? null"

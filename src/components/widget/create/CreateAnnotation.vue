@@ -151,7 +151,7 @@ function onCropSubmit(rect: CropRect) {
     step.value = 'body'
 }
 
-async function onBodySubmit(body: string, priority: Priority, memberIds: string[]) {
+async function onBodySubmit(body: string, priority: Priority, memberIds: string[], dueAt: string | null) {
     if (submitting.value) return
     submitting.value = true
     try {
@@ -162,6 +162,7 @@ async function onBodySubmit(body: string, priority: Priority, memberIds: string[
         const saved = await createReport.mutateAsync({
             body: body || '<p>(screenshot)</p>',
             priority,
+            dueAt,
             pin: pendingPin.value,
             screenshot,
         })

@@ -6,13 +6,14 @@ import { isHtmlEmpty } from '@/core/text'
 import type { Priority } from '@/domain/priority'
 import Editor from '@/components/shared/ui/Editor.vue'
 import MemberPopover from '@/components/shared/report/MemberPopover.vue'
+import DuePopover from '@/components/shared/report/DuePopover.vue'
 import PriorityPopover from '@/components/shared/report/PriorityPopover.vue'
 
 const props = withDefaults(defineProps<{ thumbnailUrl?: string; submitting?: boolean }>(), {
     thumbnailUrl: '',
     submitting: false,
 })
-const emit = defineEmits<{ submit: [body: string, priority: Priority, memberIds: string[]]; back: []; cancel: [] }>()
+const emit = defineEmits<{ submit: [body: string, priority: Priority, memberIds: string[], dueAt: string | null]; back: []; cancel: [] }>()
 
 const store = useStore<SharedStore>()
 const { confirm } = useConfirm()
@@ -22,6 +23,9 @@ const priority = ref<Priority>('normal')
 // Draft member selection - assigned to the report after the create call lands.
 const selectedMemberIds = ref<string[]>([])
 const isMembersOpen = ref(false)
+// Draft deadline - ungated so guests may set it at create (mirrors priority).
+const selectedDueAt = ref<string | null>(null)
+const isDueOpen = ref(false)
 // Closing the modal on an outside pointerdown would discard the priority pick,
 // which fires its click after that pointerdown - lock dismissal while a nested popover is open.
 const isPriorityOpen = ref(false)
@@ -31,7 +35,7 @@ const showMembers = computed(() => !!store.auth.user)
 
 function onSubmit() {
     if (!isBodyFilled.value || props.submitting) return
-    emit('submit', body.value, priority.value, selectedMemberIds.value)
+    emit('submit', body.value, priority.value, selectedMemberIds.value, selectedDueAt.value)
 }
 
 async function onClose() {
@@ -46,7 +50,7 @@ async function onClose() {
         title="Describe the issue"
         description="Step 3 of 3 - Describe the screenshot"
         :ui="{ content: 'max-w-[min(360px,calc(100vw-32px))]' }"
-        :dismissible="!isPriorityOpen && !isMembersOpen"
+        :dismissible="!isPriorityOpen && !isMembersOpen && !isDueOpen"
         @update:open="(v: boolean) => !v && onClose()"
     >
         <template #header>
@@ -89,6 +93,12 @@ async function onClose() {
                     size="sm"
                 />
                 <PriorityPopover v-model="priority" v-model:open="isPriorityOpen" />
+                <DuePopover
+                    v-model:due-at="selectedDueAt"
+                    v-model:open="isDueOpen"
+                    placement="top-start"
+                    size="sm"
+                />
                 <UButton
                     variant="solid"
                     color="success"

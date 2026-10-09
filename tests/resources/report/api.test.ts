@@ -68,6 +68,18 @@ describe('makeReportApi', () => {
         expect(client.patch).toHaveBeenCalledWith('report/r1/priority', { priority: 'critical' })
     })
 
+    it('changes the due date via PATCH report/{id}/due_at with { due_at }', async () => {
+        const client = createClient()
+        await makeReportApi(client).due('r1', '2026-07-03T17:00:00Z')
+        expect(client.patch).toHaveBeenCalledWith('report/r1/due_at', { due_at: '2026-07-03T17:00:00Z' })
+    })
+
+    it('clears the due date via PATCH report/{id}/due_at with { due_at: null }', async () => {
+        const client = createClient()
+        await makeReportApi(client).due('r1', null)
+        expect(client.patch).toHaveBeenCalledWith('report/r1/due_at', { due_at: null })
+    })
+
     it('adds members via POST report/{id}/member with { user_ids }', async () => {
         const client = createClient()
         await makeReportApi(client).addMembers('r1', ['u1', 'u2'])

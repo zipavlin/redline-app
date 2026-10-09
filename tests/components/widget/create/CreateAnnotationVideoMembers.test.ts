@@ -73,6 +73,14 @@ vi.mock('@/components/shared/report/MemberPopover.vue', () => ({
             </div>`,
     },
 }))
+vi.mock('@/components/shared/report/DuePopover.vue', () => ({
+    default: {
+        name: 'DuePopoverStub',
+        props: ['dueAt', 'open', 'placement', 'size'],
+        emits: ['update:dueAt', 'update:open'],
+        template: '<div class="report-due-stub" />',
+    },
+}))
 // The annotation orchestrator locks body scroll while the capture session is open;
 // keep the rest of reka-ui intact for Nuxt UI internals that import it.
 vi.mock('reka-ui', async (importOriginal) => {
@@ -183,7 +191,7 @@ describe.each([
         wrapper.findComponent({ name: 'EditorStub' }).vm.$emit('submit')
         await nextTick()
 
-        expect(wrapper.emitted('submit')?.at(-1)).toEqual(['<p>hi</p>', 'normal', ['u9']])
+        expect(wrapper.emitted('submit')?.at(-1)).toEqual(['<p>hi</p>', 'normal', ['u9'], null])
 
         members.vm.$emit('update:open', true)
         await nextTick()
@@ -264,8 +272,8 @@ async function driveVideoToBody(store: FlowStore, wrapper: VueWrapper) {
     await nextTick()
 }
 
-function emitBodySubmit(wrapper: VueWrapper, body: string, memberIds: string[]) {
-    wrapper.findComponent({ name: 'BodyStub' }).vm.$emit('submit', body, 'normal', memberIds)
+function emitBodySubmit(wrapper: VueWrapper, body: string, memberIds: string[], dueAt: string | null = null) {
+    wrapper.findComponent({ name: 'BodyStub' }).vm.$emit('submit', body, 'normal', memberIds, dueAt)
 }
 
 describe('create flow member assignment', () => {
@@ -328,5 +336,33 @@ describe('create flow member assignment', () => {
 
         expect(api.report.store).toHaveBeenCalledTimes(1)
         expect(api.report.addMembers).not.toHaveBeenCalled()
+    })
+
+    it('threads the deadline into the annotation create payload', async () => {
+        const store = makeFlowStore()
+        const api = makeFlowApi()
+        const wrapper = mountFlow(CreateAnnotation, store, api)
+
+        await driveAnnotationToBody(store, wrapper)
+        emitBodySubmit(wrapper, '<p>drawn</p>', [], '2026-06-15T22:00:00.000Z')
+        await flushPromises()
+
+        expect(api.report.store).toHaveBeenCalledWith(
+            expect.objectContaining({ due_at: '2026-06-15T22:00:00.000Z' }),
+        )
+    })
+
+    it('threads the deadline into the video create payload', async () => {
+        const store = makeFlowStore()
+        const api = makeFlowApi()
+        const wrapper = mountFlow(CreateVideo, store, api)
+
+        await driveVideoToBody(store, wrapper)
+        emitBodySubmit(wrapper, '<p>recording</p>', [], '2026-06-15T22:00:00.000Z')
+        await flushPromises()
+
+        expect(api.report.store).toHaveBeenCalledWith(
+            expect.objectContaining({ due_at: '2026-06-15T22:00:00.000Z' }),
+        )
     })
 })

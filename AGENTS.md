@@ -32,10 +32,10 @@ npm run type-check && npm run test && npm run lint:boundaries
 
 ## Test status (current baseline)
 
-- **25 test files** (`tests/`, ~182 tests at extraction time) - happy-dom via vitest,
-  `globals: true`. Note: tests live in `tests/`, **not** co-located under `src/`; there
-  are no tests under `src/`.
-- `npm run type-check` is **clean** in this extraction (vue-tsc --noEmit).
+- **75 test files / 796 tests** (`tests/`) - happy-dom via vitest, `globals: true`.
+  Note: tests live in `tests/`, **not** co-located under `src/`; there are no tests
+  under `src/`.
+- `npm run type-check` is **clean** (vue-tsc --noEmit).
 
 ## CI
 

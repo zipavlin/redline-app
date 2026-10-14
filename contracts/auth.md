@@ -1,4 +1,4 @@
-# Authentication Contract (v1)
+# Authentication Contract (v2)
 
 ## Overview
 

@@ -52,7 +52,7 @@ describe('priority accessors', () => {
     it('falls back gracefully for an unknown priority', () => {
         const unknown = 'bogus' as unknown as Priority
         expect(priorityLabel(unknown)).toBe('bogus')
-        expect(priorityIcon(unknown)).toBe('bogus')
+        expect(priorityIcon(unknown)).toBeNull()
         expect(priorityColor(unknown)).toBe('neutral')
     })
 })

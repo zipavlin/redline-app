@@ -1,4 +1,4 @@
-# Redline API Contract - version 1
+# Redline API Contract - version 2
 
 This directory is the **contract source** for the Redline frontend
 (`redline-app`: widget + dashboard). It is the authoritative statement of what
@@ -16,7 +16,7 @@ implementation - never invented from a design doc.
   this contract has been verified against (routes, controllers, middleware,
   query grammar, config read directly from its source).
 - The backend is swappable in parts (storage provider, guard provider, auth
-  provider) but the **HTTP surface** documented here is fixed for version 1.
+   provider) but the **HTTP surface** documented here is fixed for version 2.
 - Anything the contract marks **"not yet implemented"** is a known gap in the
   backend - the frontend may carry transport/types for it, but no current
   backend satisfies it. Do not treat those as contract requirements yet.
@@ -24,7 +24,7 @@ implementation - never invented from a design doc.
 ## Versioning policy
 
 - The contract is versioned as an integer carried in the public bootstrap
-  payload: `GET /{api}/bootstrap` returns `"version": 1`.
+   payload: `GET /{api}/bootstrap` returns `"version": 2`.
 - **Minor (1.x-style, contract-compatible)**: additive changes only - new
   optional request fields, new include targets, new filters, new endpoints
   that the frontend can ignore - plus **relaxed access gates** (letting more
@@ -70,4 +70,4 @@ implementation - never invented from a design doc.
 - All field names are **snake_case**, exactly as the API returns them.
 - `{api}` in a path means the API base URL: `/{redline.path}/api`
   (default `/redline/api`). Host config: `REDLINE_PATH` / `config('redline.path')`.
-- Every claim below traces to the implementation read for version 1.
+- Every claim below traces to the implementation read for version 2.

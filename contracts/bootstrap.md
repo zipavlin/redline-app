@@ -1,4 +1,4 @@
-# Bootstrap Payload - `GET /{api}/bootstrap` (v1)
+# Bootstrap Payload - `GET /{api}/bootstrap` (v2)
 
 Public, read-only capability manifest. No auth, no CSRF; rate-limited
 (`throttle:redline-bootstrap`, default 120/min per IP,
@@ -11,7 +11,7 @@ No secrets or request data - only capability flags and config names.
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "features": ["screenshots", "videos", "files", "comments", "mentions"],
   "capabilities": {
     "guest_reporting": false,
@@ -34,7 +34,7 @@ No secrets or request data - only capability flags and config names.
 
 | Field | Type | Default (OpenAuthProvider, no config) | Description |
 |---|---|---|---|
-| `version` | integer | `1` | Contract version. Bumped only on breaking contract changes |
+| `version` | integer | `2` | Contract version. Bumped only on breaking contract changes. v2 removed the report `has_media` filter in favor of the separate `screenshot:exists` / `video:exists` existence filters (see wire note below) |
 | `features` | string[] | all five | Enabled feature flags; any of `screenshots`, `videos`, `files`, `comments`, `mentions` (missing = disabled via `REDLINE_DISABLED`) |
 | `capabilities.guest_reporting` | boolean | `false` | `redline.auth.guest` - anonymous report submission allowed |
 | `capabilities.auth.can_login` | boolean | `true` | `AuthProvider::canLogin()` (false for CloudAuthProvider) |
@@ -94,6 +94,14 @@ the cookie transport (same-origin; cross-origin/cloud never carries the host
 cookie), only after `GET /auth/me` reports no redline session, and once per
 mount. A non-2xx or 202 pending-approval response or a network failure is silent (no toast, no error
 state, never throws); remember-me does not apply, and registration is closed.
+
+## Wire note (v2): `has_media` removed
+
+Wire version 2 removes the report `has_media` filter (it was an OR across
+screenshot/video). Filter media presence with the separate existence filters
+`filter[screenshot:exists]=1|0` and `filter[video:exists]=1|0` instead (see
+`api.md` Report query schema). The two `filter[]`s are AND-combined, so "has
+any media" is no longer expressible in one call.
 
 ## JSON Schema
 

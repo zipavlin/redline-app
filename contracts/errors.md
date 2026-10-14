@@ -1,4 +1,4 @@
-# Error Envelope (v1)
+# Error Envelope (v2)
 
 All error responses are JSON with the `Accept: application/json` the client
 sends. There are **three** envelope families - the auth controller's custom
@@ -42,13 +42,26 @@ boolean flagging the account-pending state.
 Produced by: `AuthController::error()` - statuses 403 (`Registration not
 allowed.`, `Login not available via this provider.`), 422 (provider
 validation, `Invalid or expired reset link.`, `Invalid or expired
-verification link.`), 202 (pending), 401 (`Invalid credentials.`), 404
+verification link.`), 202 (pending), 401 (`Invalid credentials.`, session-mode
+host failures such as `Not authenticated with the host application.`), 404
 (`Verification not supported by this provider.`).
 
+Login covers TWO modes (see `api.md`): **credentials mode** (email/password
+body validated by the provider; malformed credentials 422 inside this same
+envelope as a flat single-string list, NOT the Laravel `{message, errors}`
+shape) and **session mode** (host session IS the credential - the body is
+ignored, an empty POST is valid). Session mode additionally has an Origin
+gate: a present-but-disallowed `Origin` header → **403 plain**
+`{ "message": "Forbidden origin." }` (NOT this envelope; an absent `Origin`
+is allowed).
+
 ### 2. Laravel validation (422)
-Used by login (`email`/`password`), forgot-password (`email`), reset-password
-(`email`, `password` min:8), user store/update, report store/update/move/status,
-comment store/update, media uploads, and **every grammar 422**:
+Used by forgot-password (`email`), reset-password (`email`, `password` min:8),
+user store/update, report store/update/move/status, comment store/update, media
+uploads, and **every grammar 422**:
+
+NOTE: login/register/verify credential and provider-validation failures do
+NOT use this shape - they go through the auth controller envelope above.
 
 ```json
 {

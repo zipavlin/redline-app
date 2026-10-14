@@ -87,13 +87,14 @@ describe('MembersPicker', () => {
         expect(wrapper.emitted('remove')).toEqual([[amy]])
     })
 
-    it('hides the remove buttons and the candidates section when read-only', () => {
+    it('disables the remove button and hides the candidates section when read-only', () => {
         const wrapper = mountPicker({ canEdit: false })
 
         expect(wrapper.text()).toContain('Report members')
         expect(wrapper.text()).toContain('Amy Alpha')
         expect(wrapper.text()).not.toContain('All members')
-        expect(wrapper.find('button[aria-label="Remove Amy Alpha"]').exists()).toBe(false)
+        // The row still renders so members stay visible, but removing is gated off.
+        expect(wrapper.find('button[aria-label="Remove Amy Alpha"]').attributes('disabled')).toBeDefined()
     })
 
     it('shows an empty state when there is nothing to show', () => {

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://redline.dev/contracts/v1/bootstrap.schema.json",
+  "$id": "https://redline.dev/contracts/v2/bootstrap.schema.json",
   "title": "Redline BootstrapResponse",
   "description": "Wire shape of GET /{api}/bootstrap - the public capability manifest the widget and dashboard fetch at mount. Fail-closed on any shape violation.",
   "type": "object",
@@ -9,8 +9,8 @@
   "properties": {
     "version": {
       "type": "integer",
-      "description": "Contract version. Currently 1. Bumped only on breaking contract changes.",
-      "const": 1
+      "description": "Contract version. Currently 2. Bumped only on breaking contract changes (v2 removed the report has_media filter in favor of screenshot:exists / video:exists).",
+      "const": 2
     },
     "features": {
       "type": "array",

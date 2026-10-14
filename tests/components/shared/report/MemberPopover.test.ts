@@ -70,6 +70,16 @@ vi.mock('@nuxt/ui/components/Avatar.vue', () => ({
         template: '<span class="u-avatar" :data-icon="icon">{{ alt }}</span>',
     },
 }))
+// UIcon resolves to @nuxt/ui's Vue wrapper (dist/runtime/vue/components/Icon.vue),
+// not the plain dist/runtime/components/Icon.vue the other components use - so it
+// must be mocked at its own subpath.
+vi.mock('@nuxt/ui/runtime/vue/components/Icon.vue', () => ({
+    default: {
+        name: 'UIcon',
+        props: ['name'],
+        template: '<i class="u-icon" :data-icon="name" />',
+    },
+}))
 vi.mock('@/components/shared/report/MembersPicker.vue', () => ({
     default: {
         name: 'MembersPicker',
@@ -157,10 +167,10 @@ afterEach(() => {
 })
 
 describe('MemberPopover trigger', () => {
-    it('shows a dashed placeholder avatar when there are no members', () => {
+    it('renders the placeholder icon when there are no members', () => {
         wrapper = mountMembers().wrapper
 
-        expect(wrapper.find('.u-avatar[data-icon="i-lucide-user-plus"]').exists()).toBe(true)
+        expect(wrapper.find('.u-icon[data-icon="i-lucide-user-round-plus"]').exists()).toBe(true)
         expect(wrapper.find('.u-avatar-group').exists()).toBe(false)
     })
 

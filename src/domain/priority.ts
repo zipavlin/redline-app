@@ -20,9 +20,9 @@ export interface PriorityMeta {
 }
 
 export const PRIORITY_META: Record<Priority, PriorityMeta> = {
-    low:      { label: 'Low',      icon: null, color: 'neutral', dot: 'bg-neutral' },
-    normal:   { label: 'Normal',   icon: null,      color: 'neutral', dot: 'bg-info' },
-    high:     { label: 'High',     icon: 'i-lucide-triangle',   color: 'warning', dot: 'bg-warning' },
+    low:      { label: 'Low',      icon: 'i-lucide-arrow-down', color: 'neutral', dot: 'bg-neutral' },
+    normal:   { label: 'Normal',   icon: 'i-lucide-minus',      color: 'info',    dot: 'bg-info' },
+    high:     { label: 'High',     icon: 'i-lucide-arrow-up',   color: 'warning', dot: 'bg-warning' },
     critical: { label: 'Critical', icon: 'i-lucide-flame',      color: 'error',   dot: 'bg-error' },
 }
 

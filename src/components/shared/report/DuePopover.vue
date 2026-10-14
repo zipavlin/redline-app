@@ -377,8 +377,8 @@ async function commitServer(value: string | null): Promise<void> {
                         />
                         <UButton
                             label="Set due date"
-                            color="success"
-                            variant="subtle"
+                            color="primary"
+                            variant="solid"
                             size="xs"
                             :disabled="!canConfirm"
                             @click="confirm"

@@ -1,4 +1,4 @@
-# Redline API - Endpoint Reference (v1)
+# Redline API - Endpoint Reference (v2)
 
 Base URL: `{api}` = `/{redline.path}/api`, default `/redline/api`.
 
@@ -36,7 +36,7 @@ Rate-limited (`throttle:redline-bootstrap`, 120/min/IP). Capability manifest
 fetched by widget+dashboard at mount. No auth, no CSRF.
 
 Response `200` - see `bootstrap.md` and `bootstrap.schema.json` for the full
-shape. `"version": 1` (int), `features` (string[]), `capabilities.auth.*`,
+shape. `"version": 2` (int), `features` (string[]), `capabilities.auth.*`,
 `capabilities.mail.configured`, `csrf.{cookie,header}`.
 
 ---
@@ -64,16 +64,40 @@ Responses:
   validation; field-keyed map, unlike Laravel's default shape).
 
 ### POST /auth/login - public
-Body: `email` (required, email), `password` (required), `remember` or
-`remember_me` (optional boolean → 30-day token instead of 1h).
+Two modes, selected by the bootstrap `capabilities.auth.login_mode`
+(`AuthProvider::loginMode()` - see `bootstrap.md`):
 
-Responses:
+- **Credentials mode** (`login_mode: credentials`, the default). Body: `email`
+  (required, email), `password` (required), `remember` or `remember_me`
+  (optional boolean → 30-day token instead of 1h).
+- **Session mode** (`login_mode: session`, e.g. `LaravelAuthProvider`). The host
+  application session IS the credential - the request body is intentionally
+  ignored, so an empty-body POST is valid (see `bootstrap.md` Host-session
+  mode). Only the cookie transport can carry the host session (same-origin);
+  `remember` is ignored and the exchange is locked to the short-lived 1h token.
+
+Origin gate (session mode only): when `loginMode() === 'session'` and an
+`Origin` header is present but `Origin::allows()` fails (neither same-origin
+nor listed in `redline.auth.allowed_origins`), the response is `403` plain
+`{ "message": "Forbidden origin." }` - NOT the `{errors, pending}` envelope.
+An absent `Origin` (non-browser client) is allowed.
+
+Responses (both modes go through `AuthController::error()` →
+`{ "errors", "pending" }`; `errors` is a flat string list, except register
+validation which may be a field-keyed map):
 - `200` - `{ "user": {...} }` + auth cookies (as register).
-- `202` - `{ "errors": ["Account not yet approved."], "pending": true }`.
-- `403` - `{ "errors": ["Login not available via this provider."], "pending": false }`.
+- `202` - `{ "errors": ["Account not yet approved."], "pending": true }`
+  (pending account; message per provider `pendingMessage()`).
+- `403` - `{ "errors": ["Login not available via this provider."], "pending": false }`
+  (`canLogin()` false, e.g. the cloud provider).
 - `401` - `{ "errors": ["Invalid credentials."], "pending": false }`
-  (uniform for unknown email / wrong password - no enumeration).
-- `422` - Laravel default: `{ "message": "...", "errors": { "email": [...] } }`.
+  (credentials mode: uniform for unknown email / wrong password - no
+  enumeration; session mode instead reports a missing/unjoinable host session,
+  e.g. `Not authenticated with the host application.` /
+  `Host user has no email address.`).
+- `422` - `{ "errors": ["..."], "pending": false }` (provider credential
+  validation, e.g. a malformed `email` - a flat single-string list in the auth
+  envelope, NOT Laravel's default `{message, errors}` shape).
 
 ### GET /auth/verify - public, **signed** URL
 Only reachable via the emailed verification link (provider-generated
@@ -354,8 +378,18 @@ server-side (`Carbon::parse()->utc()`), so the stored value is always UTC.
   `none` = no `due_at` and is NOT status-scoped; unknown value 422s), `due_at`
   (raw date ops incl. `from`/`to`/`null`/`not_null`; values must be `Y-m-d` or
   `Y-m-d H:i:s`, NOT full ISO-8601 - pre-existing lexical-compare behavior;
-  power-user surface the UI never sends), `screenshot` (exists),
-  `video` (exists), `comments` (exists).
+  power-user surface the UI never sends), `member` (eq/not/in/not_in/exists
+  resolving to `members.id`: `filter[member]=<uuid>` (bare relation ==
+  `members.id`), `filter[member:in]=<uuid>,<uuid>` (comma-separated OR),
+  `filter[member:exists]=1|0` (1/true or 0/false only, anything else 422s) -
+  the eq and `:in` forms are the ones the frontend sends (assigned-to-me /
+  member-ids); `:not`/`:not_in` negate the whole membership predicate, and
+  `member.<attr>` (e.g. `member.name:like`) is unsupported and 422s - no
+  `relatedSchema`/`relatedFilters`), `screenshot` (exists),
+  `video` (exists), `comments` (exists). `has_media` was REMOVED (v2) - it was
+  an OR across screenshot/video; use the separate `screenshot:exists` /
+  `video:exists` existence filters instead (two `filter[]`s are AND-combined,
+  so "has any media" is no longer expressible in one call).
 - sortable: `created_at`, `status`, `priority` (enum-ordered, not lexical -
   `sort[priority]=desc` puts `critical` first), `due_at` (NULLs sort LAST in
   both directions), `location`

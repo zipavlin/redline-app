@@ -29,7 +29,7 @@ const statusBarProgress = computed<number>(() => statusProgress(props.status as 
             <UProgress
                 :color="priority ? priorityColor(priority) : 'neutral'"
                 size="2xs"
-                v-model="statusBarProgress"
+                :model-value="statusBarProgress"
             />
             <slot name="tag" />
         </div>

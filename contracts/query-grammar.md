@@ -1,4 +1,4 @@
-# Redline Query Grammar (v1)
+# Redline Query Grammar (v2)
 
 Generic REST grammar shared by the collection endpoints of `report` and
 `user`. Implemented in `redline-laravel` `src/Http/Query/*`; each resource
@@ -166,7 +166,7 @@ GET /report?include[]=pin&include[]=element&include[]=title
 {
   "data": [
     {
-      "id": "1f2c…", "status": "new", "created_at": "2026-07-01T10:00:00Z",
+      "id": "1f2c…", "status": "new", "priority": "normal", "due_at": null, "created_at": "2026-07-01T10:00:00Z",
       "pin": { "x": 42.5, "y": 33.1, "prefer_selector": true, "scroll_x": 0, "scroll_y": 0 },
       "element": "div.product-card", "title": "Cart total is wrong",
       "author": { "id": "…", "name": "Jane Smith" }
@@ -175,6 +175,9 @@ GET /report?include[]=pin&include[]=element&include[]=title
   "meta": { "total": 3, "per_page": 16, "current_page": 1, "last_page": 1 }
 }
 ```
+(Base row = `id`, `status`, `priority` (default `"normal"`), `due_at` (`null`
+when unset), `created_at`; anything else - including `pin`, `element`,
+`title`, `author` - is include-gated.)
 
 ### 2. Report tab counts (aggregate, no status filter so tabs stay stable)
 ```http

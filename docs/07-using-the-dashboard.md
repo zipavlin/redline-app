@@ -62,12 +62,14 @@ The table has these columns:
 | Column | Notes |
 | --- | --- |
 | Status | Badge with the report status |
+| Priority | Badge with the report priority |
+| Due at | Deadline badge; hover for the full date and time |
 | Report | The report title |
-| URL | The page the report was filed on |
-| Reported by | The author's name |
-| Date | Relative time; hover for the full date and time |
+| Path/URL | The page the report was filed on |
+| Author | The author's name |
+| Created at | Relative time; hover for the full date and time |
 
-Click a column header to sort by it (Status, URL, Reported by, and Date are sortable; the title column is not). Clicking again reverses the direction. The header row stays visible while scrolling, a settings icon opens the column visibility menu, and the footer shows the total report count with pagination. When nothing matches the current tabs, search, and filters, the table shows an empty state.
+Click a column header to sort by it (Status, Priority, Due at, Path/URL, and Created at are sortable; the Report and Author columns are not). Clicking again reverses the direction. The header row stays visible while scrolling, a settings icon opens the column visibility menu, and the footer shows the total report count with pagination. When nothing matches the current tabs, search, and filters, the table shows an empty state.
 
 The table supports keyboard navigation: once the table has focus, the Up and Down arrow keys move the selection, opening the report details drawer for the highlighted row (inbox style). At the top or bottom of a page the selection carries over to the previous or next page; Escape clears the selection and closes the drawer.
 
@@ -100,14 +102,14 @@ The table has these columns:
 | Column | Notes |
 | --- | --- |
 | Status | Active or Pending badge |
-| Name | The user's name |
+| Full name | The user's name |
 | Email | The user's email |
 | Role | Admin, Developer, or Reporter badge |
 | Reports | Number of reports filed |
 | Comments | Number of comments posted |
-| Joined | Relative time; hover for the full date and time |
+| Created at | Relative time; hover for the full date and time |
 
-Sorting, column visibility, sticky headers, pagination, and keyboard navigation work the same as on the Reports table (sortable columns are Name, Role, Reports, Comments, and Joined).
+Sorting, column visibility, sticky headers, pagination, and keyboard navigation work the same as on the Reports table (sortable columns are Full name, Reports, Comments, and Created at; Status, Email, and Role are static).
 
 ### User details
 

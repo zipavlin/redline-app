@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import type { DashboardReportRow } from '@/resources/report/model'
-import { computed, h, resolveComponent } from 'vue'
+import { computed, h } from 'vue'
+import UButton from '@nuxt/ui/components/Button.vue'
+import UBadge from '@nuxt/ui/components/Badge.vue'
+import UTooltip from '@nuxt/ui/components/Tooltip.vue'
 import type { TableColumn, TableRow } from '@nuxt/ui'
 import { useStore } from '@/composables/useStore'
 import type { DashboardStore, ReportDueFilter } from '@/store/dashboard'
@@ -15,9 +18,6 @@ import ReportFilterTags from '@/components/dashboard/pages/reports/ReportFilterT
 import DateRangeField from '@/components/shared/ui/DateRangeField.vue'
 
 const store = useStore<DashboardStore>()
-const UButton = resolveComponent('UButton')
-const UBadge = resolveComponent('UBadge')
-const UTooltip = resolveComponent('UTooltip')
 
 const { data: listData, isFetching } = useReportList(() => store.reportListParams())
 const { data: authorsData } = useReportAggregate(
@@ -151,11 +151,11 @@ const hasAdvancedFilters = computed(() =>
 const toggleableColumns = [
     { id: 'status', label: 'Status' },
     { id: 'priority', label: 'Priority' },
-    { id: 'due_at', label: 'Due' },
+    { id: 'due_at', label: 'Due at' },
     { id: 'title', label: 'Report' },
-    { id: 'location', label: 'URL' },
-    { id: 'filed_by', label: 'Filed by' },
-    { id: 'created_at', label: 'Date' },
+    { id: 'location', label: 'Path/URL' },
+    { id: 'filed_by', label: 'Author' },
+    { id: 'created_at', label: 'Created at' },
 ]
 const {
     highlightedIndex,
@@ -205,7 +205,7 @@ const columns: TableColumn<DashboardReportRow>[] = [
     },
     {
         accessorKey: 'due_at',
-        header: sortableHeader('due_at', 'Due'),
+        header: sortableHeader('due_at', 'Due at'),
         cell: ({ row }) => {
             const dueAt = row.original.due_at
             if (!isDueAtUsable(dueAt)) return h('span', { class: 'text-dimmed' }, '–')
@@ -245,17 +245,17 @@ const columns: TableColumn<DashboardReportRow>[] = [
     },
     {
         accessorKey: 'location',
-        header: sortableHeader('location', 'Url'),
+        header: sortableHeader('location', 'Path/URL'),
         cell: ({ row }) => h('span', { class: 'text-muted' }, row.original.location),
     },
     {
         id: 'filed_by',
-        header: sortableHeader('author', 'Reported by'),
+        header: 'Author',
         cell: ({ row }) => h('span', { class: 'text-muted' }, row.original.author?.name ?? '-'),
     },
     {
         accessorKey: 'created_at',
-        header: sortableHeader('created_at', 'Date'),
+        header: sortableHeader('created_at', 'Created at'),
         cell: ({ row }) => h(
             UTooltip,
             { text: getFormattedDatetime(row.original.created_at) },

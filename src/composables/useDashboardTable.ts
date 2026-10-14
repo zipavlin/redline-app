@@ -8,7 +8,8 @@
  * small structural slices (`page`, `sort`) and calls back into the store via
  * `select`/`clear`, so it stays app-agnostic.
  */
-import { computed, h, nextTick, onMounted, ref, resolveComponent, watch } from 'vue'
+import { computed, h, nextTick, onMounted, ref, watch } from 'vue'
+import UButton from '@nuxt/ui/components/Button.vue'
 import type { DropdownMenuItem, TableRow } from '@nuxt/ui'
 
 export type TableSortDir = 'asc' | 'desc'
@@ -148,11 +149,10 @@ export function useDashboardTable<T>(options: DashboardTableOptions<T>) {
 
     /**
      * A header that toggles the server sort for `key` and reflects its direction.
-     * resolveComponent runs lazily so the composable stays usable outside a
-     * component instance (unit tests never call sortableHeader).
+     * UButton is a direct import - Nuxt UI registers U* components for templates
+     * only, so resolveComponent would hand back an unresolvable name here.
      */
     function sortableHeader(key: string, label: string) {
-        const UButton = resolveComponent('UButton')
         return () => h(UButton, {
             color: 'neutral',
             variant: 'ghost',

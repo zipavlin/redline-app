@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { defineComponent, reactive, ref } from 'vue'
 import { mount, type VueWrapper } from '@vue/test-utils'
+import UButton from '@nuxt/ui/components/Button.vue'
 import { useDashboardTable, type TableSortDir } from '@/composables/useDashboardTable'
 
 interface Row { id: string }
@@ -143,6 +144,34 @@ describe('useDashboardTable', () => {
         expect(t.sortIcon('role')).toBe('i-lucide-arrow-up-down')
         t.toggleSort('name')
         expect(t.sortIcon('name')).toBe('i-lucide-arrow-down-wide-narrow')
+    })
+
+    it('sortableHeader builds a real button header, not an unresolved component name', () => {
+        const vnode = t.sortableHeader('status', 'Status')()
+
+        expect(typeof vnode.type).toBe('object')
+        expect(vnode.type).not.toBe('UButton')
+        expect(vnode.type).toBe(UButton)
+
+        // Rebuilding the same header is idempotent - no throw, still the component.
+        expect(t.sortableHeader('status', 'Status')().type).toBe(UButton)
+    })
+
+    it('the header button toggles the server sort for its key and shows the direction', () => {
+        const activate = t.sortableHeader('status', 'Status')()
+        expect(activate.props.label).toBe('Status')
+        expect(activate.props.icon).toBe('i-lucide-arrow-up-down')
+
+        // Activating a NEW key starts descending...
+        activate.props.onClick()
+        expect(h.sort.sort).toBe('status')
+        expect(h.sort.dir).toBe('desc')
+        expect(t.sortableHeader('status', 'Status')().props.icon).toBe('i-lucide-arrow-down-wide-narrow')
+
+        // ...and pressing the SAME header again flips to ascending.
+        t.sortableHeader('status', 'Status')().props.onClick()
+        expect(h.sort.dir).toBe('asc')
+        expect(t.sortableHeader('status', 'Status')().props.icon).toBe('i-lucide-arrow-up-narrow-wide')
     })
 
     it('column menu items toggle visibility checkboxes', async () => {

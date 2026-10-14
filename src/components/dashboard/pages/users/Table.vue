@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import type { UserRow } from '@/resources/user/model'
-import { computed, h, ref, resolveComponent } from 'vue'
+import { computed, h, ref } from 'vue'
+import UButton from '@nuxt/ui/components/Button.vue'
+import UBadge from '@nuxt/ui/components/Badge.vue'
+import UTooltip from '@nuxt/ui/components/Tooltip.vue'
 import type { TableColumn, TableRow } from '@nuxt/ui'
 import { useStore } from '@/composables/useStore'
 import type { DashboardStore } from '@/store/dashboard'
@@ -12,9 +15,6 @@ import CreateUser from '@/components/dashboard/pages/users/CreateUser.vue'
 import { filterParams, mergeParams, type ListParams } from '@/core/api/params'
 
 const store = useStore<DashboardStore>()
-const UButton = resolveComponent('UButton')
-const UBadge = resolveComponent('UBadge')
-const UTooltip = resolveComponent('UTooltip')
 
 // State
 const createOpen = ref(false)
@@ -105,12 +105,12 @@ const roleLabel = (role?: string): string => {
  */
 const toggleableColumns = [
     { id: 'status', label: 'Status' },
-    { id: 'name', label: 'Name' },
+    { id: 'name', label: 'Full name' },
     { id: 'email', label: 'Email' },
     { id: 'role', label: 'Role' },
     { id: 'reports_count', label: 'Reports' },
     { id: 'comments_count', label: 'Comments' },
-    { id: 'created_at', label: 'Joined' },
+    { id: 'created_at', label: 'Created at' },
 ]
 const {
     highlightedIndex,
@@ -150,7 +150,7 @@ const columns: TableColumn<UserRow>[] = [
     },
     {
         accessorKey: 'name',
-        header: sortableHeader('name', 'Name'),
+        header: sortableHeader('name', 'Full name'),
         cell: ({ row }) => h('span', { class: 'font-medium text-highlighted' }, row.original.name ?? '-'),
     },
     {
@@ -160,7 +160,7 @@ const columns: TableColumn<UserRow>[] = [
     },
     {
         accessorKey: 'role',
-        header: sortableHeader('role', 'Role'),
+        header: 'Role',
         cell: ({ row }) => h(
             UBadge,
             { variant: 'subtle', color: roleColor(row.original.role) },
@@ -169,17 +169,17 @@ const columns: TableColumn<UserRow>[] = [
     },
     {
         accessorKey: 'reports_count',
-        header: sortableHeader('reports:count', 'Reports'),
+        header: sortableHeader('reports_count', 'Reports'),
         cell: ({ row }) => h('span', { class: 'tabular-nums' }, row.original.reports_count ?? 0),
     },
     {
         accessorKey: 'comments_count',
-        header: sortableHeader('comments:count', 'Comments'),
+        header: sortableHeader('comments_count', 'Comments'),
         cell: ({ row }) => h('span', { class: 'tabular-nums' }, row.original.comments_count ?? 0),
     },
     {
         accessorKey: 'created_at',
-        header: sortableHeader('created_at', 'Joined'),
+        header: sortableHeader('created_at', 'Created at'),
         cell: ({ row }) => h(
             UTooltip,
             { text: getFormattedDatetime(row.original.created_at) },

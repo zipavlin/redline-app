@@ -20,7 +20,8 @@ ID format: UUID strings for all resources.
   owner. Pending users and guests are blocked except guests may `CREATE` a
   report in guest mode. See `auth.md`.
 - `checkFeature()`: `screenshots`, `videos`, `comments` endpoints abort 403
-  `"Feature disabled."` when the feature is in `REDLINE_DISABLED`.
+  `"Feature disabled."` when the feature is **not** listed in `REDLINE_FEATURES`
+  (opt-in - see `bootstrap.md`).
 - Rich text (`body`) is sanitized server-side with an HTML allowlist
   (`p,br,strong,em,s,a[href|title],ul,ol,li`, plus a `span` carrying only the
   TipTap mention attributes
@@ -369,7 +370,10 @@ server-side (`Carbon::parse()->utc()`), so the stored value is always UTC.
   `resolved,done`, or a concrete status), `priority` (string ops over the
   concrete values `low,normal,high,critical`; no value groups), `body`
   (string ops), `created_at`
-  (date ops incl. `from`/`to`), `location` (string ops), `author`
+  (date ops incl. `from`/`to`), `location` (string ops), `url` (string ops - the
+  report's page URL; `eq` is an exact whole-URL match and `like` a substring
+  match, exactly as for `body`/`location`; added additively, for MCP
+  `report_list` parity), `author`
   (eq/not/in/not_in/exists on id; relation attribute `author.name` only -
   `author.email:like` 422s), `search` (like, OR body/location), `mine` (eq,
   `author_id` = current user; truthy value), `due` (closed enum

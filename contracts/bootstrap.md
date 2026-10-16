@@ -12,7 +12,7 @@ No secrets or request data - only capability flags and config names.
 ```json
 {
   "version": 2,
-  "features": ["screenshots", "videos", "files", "comments", "mentions"],
+  "features": [],
   "capabilities": {
     "guest_reporting": false,
     "auth": {
@@ -35,7 +35,7 @@ No secrets or request data - only capability flags and config names.
 | Field | Type | Default (OpenAuthProvider, no config) | Description |
 |---|---|---|---|
 | `version` | integer | `2` | Contract version. Bumped only on breaking contract changes. v2 removed the report `has_media` filter in favor of the separate `screenshot:exists` / `video:exists` existence filters (see wire note below) |
-| `features` | string[] | all five | Enabled feature flags; any of `screenshots`, `videos`, `files`, `comments`, `mentions` (missing = disabled via `REDLINE_DISABLED`) |
+| `features` | string[] | `[]` | Enabled feature flags - opt-in: a feature is enabled if and only if its name is listed in `REDLINE_FEATURES` (comma-separated; an empty default enables none). Names (five): `screenshots`, `videos`, `files`, `comments`, `mcp`; missing from the list = disabled |
 | `capabilities.guest_reporting` | boolean | `false` | `redline.auth.guest` - anonymous report submission allowed |
 | `capabilities.auth.can_login` | boolean | `true` | `AuthProvider::canLogin()` (false for CloudAuthProvider) |
 | `capabilities.auth.can_register` | boolean | `true` | `AuthProvider::canRegister()` (false for closed/cloud) |

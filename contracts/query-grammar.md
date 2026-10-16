@@ -15,6 +15,7 @@ Omitting `:<operator>` means equality.
 GET /report
   ?filter[status]=unresolved              # eq (default operator)
   &filter[body:like]=There is a bug       # value needs no escaping
+  &filter[url:like]=checkout              # substring match on the page URL
   &filter[created_at:from]=2026-05-01     # inclusive lower bound
   &filter[created_at:to]=2026-07-31       # inclusive upper bound
   &filter[author]=<uuid>                  # bare relation == its primary key

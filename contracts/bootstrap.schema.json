@@ -14,10 +14,10 @@
     },
     "features": {
       "type": "array",
-      "description": "Enabled feature flags. Missing from the list = disabled (REDLINE_DISABLED).",
+      "description": "Enabled feature flags - opt-in: a feature is enabled if and only if its name is listed in REDLINE_FEATURES (comma-separated; an empty default enables none). Missing from the list = disabled.",
       "items": {
         "type": "string",
-        "enum": ["screenshots", "videos", "files", "comments", "mentions"]
+        "enum": ["screenshots", "videos", "files", "comments", "mcp"]
       },
       "uniqueItems": true
     },

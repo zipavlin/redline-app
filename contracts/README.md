@@ -64,6 +64,7 @@ implementation - never invented from a design doc.
 | `bootstrap.schema.json` | JSON Schema (draft 2020-12) for the `BootstrapResponse` shape        |
 | `errors.md`             | Error envelope formats, status codes, rate-limit behavior            |
 | `auth.md`               | Authentication contract: JWT cookie, double-submit CSRF, Bearer, guest mode |
+| `mcp.md`                | MCP server surface: endpoint, bearer `rlm_` tokens, tool list, error semantics |
 
 ## Conventions used throughout
 

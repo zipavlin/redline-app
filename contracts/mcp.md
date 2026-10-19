@@ -50,8 +50,8 @@ the host enables the `mcp` feature. Features are opt-in in this contract
 version: `REDLINE_FEATURES` (comma-separated feature names; an empty default
 enables nothing) plus the `redline:enable` artisan command, which lists and
 toggles features and writes that env var. When `mcp` is not enabled the route
-is never registered, so clients get an ordinary `404` - the same plain body as
-every other `404` on this surface (below). When it is enabled, the
+is never registered, so clients get an ordinary Laravel default `404` (see the
+bodies below). When it is enabled, the
 bootstrap `features` array includes `"mcp"` - a name the current frontend
 ignores; `features` stays `string[]` (see `bootstrap.md`).
 
@@ -60,12 +60,17 @@ This opt-in model is the contract-wide one: it replaces the older subtractive
 `bootstrap.schema.json` and `api.md` - a feature is enabled if and only if its
 name is listed in `REDLINE_FEATURES`.
 
-**What a `404` looks like, and `405`.** A `404` from `{mcp}` always carries the
-plain body `{ "message": "Not found." }` - whether the route was never
-registered (feature off), the host guard is inert (`RedlineActive`, order 1), or
-a cached route outlives a feature that is now off (`RedlineMcpEnabled`, order 2,
-re-checks it per request). None of these confirm whether the endpoint exists,
-and they apply to every method. The URI accepts `POST` only: once both gates
+**What a `404` looks like, and `405`.** The `404` body depends on which of the
+three outcomes produced it - they do NOT all look alike:
+
+| 404 cause | Body |
+|---|---|
+| The route was never registered (the `mcp` feature is off and no route cache holds it) | Laravel's default 404 envelope, as in `errors.md` (`{ "message": "" }` with `app.debug=false`) |
+| The host guard is inert (`RedlineActive`, order 1) | Laravel's default 404 envelope - the middleware calls `abort(404)` with no message, so it renders exactly the shape pinned in `errors.md` |
+| A cached route outlives a feature that is now off (`RedlineMcpEnabled`, order 2, re-checks the feature per request) | `{ "message": "Not found." }` |
+
+None of these confirm whether the endpoint exists, and they apply to every
+method. The URI accepts `POST` only: once both gates
 pass, `GET` and `DELETE` on it answer `405` with `Allow: POST`.
 
 ## 2. Authentication - bearer `rlm_` tokens

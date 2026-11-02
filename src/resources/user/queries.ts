@@ -1,6 +1,7 @@
 import { computed, getCurrentScope, onScopeDispose, toValue, type MaybeRefOrGetter } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import { useApi } from '@/composables/useApi'
+import { ApiResponseError } from '@/core/api/errors'
 import { userKeys } from '@/resources/user/keys'
 import { paginateParams, type ListParams } from '@/core/api/params'
 import type { UserCounts, UserListResponse, UserRow } from '@/resources/user/model'
@@ -15,7 +16,7 @@ export function useUserList(params: MaybeRefOrGetter<ListParams>, opts?: {
         enabled: computed(() => toValue(opts?.enabled) ?? true),
         queryFn: async (): Promise<UserListResponse> => {
             const res = await api.user.index(toValue(params))
-            if (!res.ok) throw Object.assign(new Error('Failed to load users'), { status: res.status })
+            if (!res.ok) throw new ApiResponseError('Failed to load users', res.status, res.data)
             return res.data
         },
         placeholderData: (prev) => prev,
@@ -139,7 +140,7 @@ export function useUserTabCounts(params: MaybeRefOrGetter<ListParams>, opts?: {
                 'aggregate[status:count]': 'approved,pending',
                 ...toValue(params),
             })
-            if (!res.ok) throw new Error('Failed to load user tab counts')
+            if (!res.ok) throw new ApiResponseError('Failed to load user tab counts', res.status, res.data)
             const statusCounts = (res.data['status'] as Record<string, unknown>)?.count as Record<string, number> | undefined
             const active = statusCounts?.approved ?? 0
             const pending = statusCounts?.pending ?? 0

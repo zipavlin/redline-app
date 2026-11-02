@@ -1,4 +1,4 @@
-# Authentication Contract (v2)
+# Authentication Contract (v3)
 
 ## Overview
 
@@ -18,6 +18,12 @@ The middleware reads the Bearer header **first**, then falls back to the
 cookie; the query string is intentionally **not** accepted (leaks into
 logs/Referer).
 
+Every request the v3 frontend sends additionally carries
+`X-Requested-With: XMLHttpRequest`. It is not CORS-safelisted, so a
+cross-origin/cloud host must allow `x-requested-with` in
+`Access-Control-Allow-Headers` (a preflight already happens because of
+`Authorization`/`Content-Type`; this is an allowlist entry only).
+
 ## JWT
 
 Issued by `AuthController::issueToken()`:
@@ -34,7 +40,7 @@ Issued by `AuthController::issueToken()`:
 - TTL: 3600 s (`REDLINE_AUTH_TOKEN`) or 2592000 s / 30 days with
   remember (`REDLINE_AUTH_REMEMBER_TOKEN`).
 - Verification: signature (HS256), expiry, `sub` → existing user, `ver` ===
-  user's current `token_version`. Any failure → 401.
+  user's current `token_version`. Any failure → 403 with `"error": "unauthenticated"` (v3; see `errors.md` - no more HTTP 401 on the browser API surface)
 - The verified payload is attached to the request as
   `redline_token_payload` so `GET /auth/refresh` re-issues from the
   **verified** `remember` flag, never from client-controlled input.
@@ -78,6 +84,20 @@ loaded and sends `credentials: 'same-origin'`.
 
 ## Flows
 
+### Me
+
+`GET /auth/me` is the frontend's session probe, and in v3 it never emits
+HTTP 401 (see `errors.md`):
+
+- no credentials presented (no `redline_token` cookie **and** no
+  `Authorization: Bearer` header) - `200` `{ "user": null }`. This is the
+  frontend's signed-out signal, chosen so no auth check can trigger a browser
+  Basic-Auth dialog.
+- credentials presented but invalid or expired - `403` with
+  `"error": "unauthenticated"` (see `errors.md`).
+- authenticated - `200` with the existing shape (the bare user object under
+  `user`, unchanged).
+
 ### Register → token (OpenAuthProvider, default)
 `POST /auth/register` with `name`, `email`, `password`, optional `role`
 (admin requested publicly is demoted to reporter unless
@@ -88,8 +108,8 @@ cookies.
 
 ### Login
 `POST /auth/login` with `email`, `password`, optional `remember`/
-`remember_me`. Uniform 401 for unknown email / wrong password (no
-enumeration; timing-equalized). Pending accounts → 202. Success → 200
+`remember_me`. Uniform 403 with the errors envelope for unknown email / wrong password (no
+enumeration; timing-equalized; the HTTP status is now 403 per `errors.md`). Pending accounts → 202. Success → 200
 `{ user }` + cookies (remember → 30-day token).
 
 ### Verify (email verification - DomainAuthProvider)
@@ -161,5 +181,7 @@ the lifecycle chain (see `api.md`).
 
 - **Query-string bearer tokens**: the screenshot/video `url` accessors may
   append `?token=<bearer>` to binary URLs, but `RedlineApiAuth` deliberately
-  ignores query-string tokens - such URLs 401 unless the request carries the
-  cookie or a Bearer header. Documented as a known ambiguity, not a feature.
+  ignores query-string tokens - such URLs are auth-denied (403 +
+  `error: "unauthenticated"` per `errors.md`) unless the request carries
+  the cookie or a Bearer header. Documented as a known ambiguity, not a
+  feature.

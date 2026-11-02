@@ -1,4 +1,5 @@
-# Redline API - Endpoint Reference (v2)
+# Redline API - Endpoint Reference (v3)
+  denial - no marker).
 
 Base URL: `{api}` = `/{redline.path}/api`, default `/redline/api`.
 
@@ -37,7 +38,7 @@ Rate-limited (`throttle:redline-bootstrap`, 120/min/IP). Capability manifest
 fetched by widget+dashboard at mount. No auth, no CSRF.
 
 Response `200` - see `bootstrap.md` and `bootstrap.schema.json` for the full
-shape. `"version": 2` (int), `features` (string[]), `capabilities.auth.*`,
+shape. `"version": 3` (int), `features` (string[]), `capabilities.auth.*`,
 `capabilities.mail.configured`, `csrf.{cookie,header}`.
 
 ---
@@ -60,7 +61,8 @@ Responses:
 - `202` - `{ "errors": ["Account created - pending approval or email verification."], "pending": true }`
   when the provider requires admin approval or email verification.
 - `403` - `{ "errors": ["Registration not allowed."], "pending": false }`
-  (provider denies self-registration).
+  (provider denies self-registration; a policy refusal, not an auth
+  denial - no marker).
 - `422` - `{ "errors": { "<field>": ["..."] }, "pending": false }` (provider
   validation; field-keyed map, unlike Laravel's default shape).
 
@@ -90,12 +92,15 @@ validation which may be a field-keyed map):
 - `202` - `{ "errors": ["Account not yet approved."], "pending": true }`
   (pending account; message per provider `pendingMessage()`).
 - `403` - `{ "errors": ["Login not available via this provider."], "pending": false }`
-  (`canLogin()` false, e.g. the cloud provider).
-- `401` - `{ "errors": ["Invalid credentials."], "pending": false }`
+  (`canLogin()` false, e.g. the cloud provider; a policy refusal, not an auth
+  denial - no marker).
+- `403` - `{ "errors": ["Invalid credentials."], "pending": false, "error": "unauthenticated" }`
   (credentials mode: uniform for unknown email / wrong password - no
   enumeration; session mode instead reports a missing/unjoinable host session,
   e.g. `Not authenticated with the host application.` /
-  `Host user has no email address.`).
+  `Host user has no email address.`). v3: these authentication-denied
+  responses are HTTP 403 carrying the added `error: "unauthenticated"`
+  marker (see `errors.md`).
 - `422` - `{ "errors": ["..."], "pending": false }` (provider credential
   validation, e.g. a malformed `email` - a flat single-string list in the auth
   envelope, NOT Laravel's default `{message, errors}` shape).
@@ -133,8 +138,14 @@ Responses:
 
 ### GET /auth/me - cookie | bearer
 Responses:
-- `200` - `{ "user": {...} }`.
-- `401` - `{ "message": "Unauthenticated." }` / `{ "message": "Invalid or expired token." }`.
+- `200` - `{ "user": {...} }` (authenticated).
+- `200` - `{ "user": null }` (v3: no credentials presented - no `redline_token`
+  cookie and no Bearer header. The signed-out signal: no authentication
+  challenge is sent, so an auth check can never pop a browser Basic-Auth
+  dialog; see `auth.md` and `errors.md`).
+- `403` - `{ "message": "Unauthenticated." }` / `{ "message": "Invalid or
+  expired token." }`, each with the added `"error": "unauthenticated"` field
+  (v3 - see `errors.md`).
 
 ### GET /auth/refresh - cookie | bearer
 Re-issues the token using the `remember` flag from the **verified** JWT
@@ -148,7 +159,7 @@ both cookies with their exact issue attributes.
 
 Responses:
 - `200` - `{ "message": "Logged out." }` (+ cookie deletion).
-- `401` if unauthenticated.
+- `403` if unauthenticated (v3 - the `error: "unauthenticated"` marker; see `errors.md`).
 
 ### User shape (`user`)
 ```json
@@ -288,7 +299,7 @@ Body:
   `created_at`, `updated_at`. No includes are applied to this response.
 - Guest mode: anonymous POST /report is attributed to the shared Guest user
   (`guest@redline.local`), gated by the guest-origin allowlist and the
-  `redline-guest` rate limiter (see auth.md). Otherwise `401`.
+  `redline-guest` rate limiter (see auth.md). Otherwise `403` with the `error: "unauthenticated"` marker (v3 - see `errors.md`).
 - `422` - validation shape (omitted `priority` defaults to `"normal"`; an
   unknown enum value 422s).
 - `429` - guest `{ "message": "Too many requests." }`.

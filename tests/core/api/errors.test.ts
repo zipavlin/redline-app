@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseApiErrors } from '@/core/api/errors'
+import { ApiResponseError, isAuthDenialError, isAuthDenialStatus, parseApiErrors } from '@/core/api/errors'
 
 describe('parseApiErrors', () => {
     it('keyed object errors → fieldErrors populated, summary null', () => {
@@ -66,5 +66,59 @@ describe('parseApiErrors', () => {
 
     it('unexpected `errors` type never throws', () => {
         expect(parseApiErrors({ errors: 'oops' })).toEqual({ fieldErrors: {}, summary: null })
+    })
+})
+
+describe('ApiResponseError', () => {
+    it('carries the HTTP status and a stable name', () => {
+        const error = new ApiResponseError('Failed to load reports', 403)
+
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('ApiResponseError')
+        expect(error.message).toBe('Failed to load reports')
+        expect(error.status).toBe(403)
+        expect(error.data).toBeUndefined()
+    })
+})
+
+describe('isAuthDenialStatus', () => {
+    it('matches the auth-deny statuses 403 and 419', () => {
+        expect(isAuthDenialStatus(403)).toBe(true)
+        expect(isAuthDenialStatus(419)).toBe(true)
+    })
+
+    it('leaves every other status out, including the 401 that no v3 backend emits', () => {
+        expect(isAuthDenialStatus(401)).toBe(false)
+        expect(isAuthDenialStatus(200)).toBe(false)
+        expect(isAuthDenialStatus(404)).toBe(false)
+        expect(isAuthDenialStatus(420)).toBe(false)
+        expect(isAuthDenialStatus(500)).toBe(false)
+    })
+})
+
+describe('isAuthDenialError', () => {
+    it('accepts ApiResponseError instances carrying an auth-deny status', () => {
+        expect(isAuthDenialError(new ApiResponseError('Denied', 403))).toBe(true)
+        expect(isAuthDenialError(new ApiResponseError('Expired CSRF', 419))).toBe(true)
+    })
+
+    it('rejects ApiResponseError instances with a non-deny status', () => {
+        expect(isAuthDenialError(new ApiResponseError('Boom', 401))).toBe(false)
+        expect(isAuthDenialError(new ApiResponseError('Boom', 500))).toBe(false)
+    })
+
+    it('accepts duck-typed errors whose numeric status is an auth denial', () => {
+        expect(isAuthDenialError({ status: 403 })).toBe(true)
+        expect(isAuthDenialError({ status: 419 })).toBe(true)
+    })
+
+    it('rejects plain errors and anything without a numeric auth-deny status', () => {
+        expect(isAuthDenialError(new Error('network'))).toBe(false)
+        expect(isAuthDenialError({ status: '403' })).toBe(false)
+        expect(isAuthDenialError({ status: null })).toBe(false)
+        expect(isAuthDenialError({})).toBe(false)
+        expect(isAuthDenialError('boom')).toBe(false)
+        expect(isAuthDenialError(null)).toBe(false)
+        expect(isAuthDenialError(undefined)).toBe(false)
     })
 })

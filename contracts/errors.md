@@ -1,4 +1,13 @@
-# Error Envelope (v2)
+# Error Envelope (v3)
+
+v3 removes HTTP 401 from the Redline browser API surface entirely: on
+Basic-Auth-protected hosts a browser pops its native authentication dialog on
+any credentialed fetch receiving a 401 (no WWW-Authenticate needed), so every
+Redline authentication-denied response is now HTTP 403 whose body carries the
+v2 message with an added `"error": "unauthenticated"` field. The `error`
+field is the stable discriminator: plain 403s, the 202 pending response,
+provider-validation 422s and CSRF 419 responses carry no `"error"` field. HTTP 401 survives only on the browser-inert MCP route,
+which keeps its bearer challenge (see `mcp.md`).
 
 All error responses are JSON with the `Accept: application/json` the client
 sends. There are **three** envelope families - the auth controller's custom
@@ -17,8 +26,8 @@ a top-level `message` is used as a summary fallback.
 | 202 | Accepted - pending | `{ "errors": ["..."], "pending": true }` (register/login pending approval/verification) |
 | 204 | No content | empty body (deletes) |
 | 400 | - | not used by the API |
-| 401 | Unauthenticated / bad token | `{ "message": "Unauthenticated." }` or `{ "message": "Invalid or expired token." }` |
-| 403 | Forbidden / feature / origin / policy | `{ "message": "..." }` or `{ "errors": ["..."], "pending": false }` (auth controller gates) |
+| 401 | not used by the API (v3) | removed from the Redline surface - the only 401 anywhere is the MCP route's bearer challenge (browser-inert, see `mcp.md`) |
+| 403 | Forbidden / feature / origin / policy / **Authentication denied (v3)** | plain `{ "message": "..." }` or auth-controller `{ "errors": [...], "pending": ... }`; authentication-denied 403s add `{ "error": "unauthenticated" }` |
 | 404 | Not found / parent mismatch | `{ "message": "..." }` or Laravel default (empty) for aborts |
 | 409 | Conflict (media already attached) | `{ "message": "Screenshot already exists for this report." }` / `"Video already exists for this report."` |
 | 419 | CSRF token mismatch | `{ "message": "CSRF token mismatch." }` |
@@ -31,20 +40,25 @@ a top-level `message` is used as a summary fallback.
 ### 1. Auth controller custom envelope (register / login / verify / reset-password / user reset-password)
 `errors` may be a **flat list of strings** or a **field-keyed map**
 `{ field: [messages] }` (register's provider validation). `pending` is a
-boolean flagging the account-pending state.
+boolean flagging the account-pending state. Authentication-denied
+responses produced by the auth controller carry the marker; the 202
+pending response and provider validation failures (422) do not.
 
 ```json
-{ "errors": ["Invalid credentials."], "pending": false }
+{ "errors": ["Invalid credentials."], "pending": false, "error": "unauthenticated" }
+{ "errors": ["Not authenticated with the host application."], "pending": false, "error": "unauthenticated" }
 { "errors": { "email": ["The email field is required."] }, "pending": false }
 { "errors": ["Account not yet approved."], "pending": true }
 ```
 
-Produced by: `AuthController::error()` - statuses 403 (`Registration not
-allowed.`, `Login not available via this provider.`), 422 (provider
-validation, `Invalid or expired reset link.`, `Invalid or expired
-verification link.`), 202 (pending), 401 (`Invalid credentials.`, session-mode
-host failures such as `Not authenticated with the host application.`), 404
-(`Verification not supported by this provider.`).
+Produced by: `AuthController::error()` - statuses 403: authentication-denied 403s carry the `"error": "unauthenticated"` marker:
+`Invalid credentials.`, session-mode host failures such as
+`Not authenticated with the host application.`); plain 403 policy
+refusals - `Registration not allowed.`, `Login not available via this
+provider.` - and 403/422 failures that are not authentication
+denials - provider validation, `Invalid or expired reset link.`,
+`Invalid or expired verification link.` - do not), 202 (pending),
+404 (`Verification not supported by this provider.`).
 
 Login covers TWO modes (see `api.md`): **credentials mode** (email/password
 body validated by the provider; malformed credentials 422 inside this same
@@ -75,8 +89,12 @@ NOT use this shape - they go through the auth controller envelope above.
 
 ### 3. Plain message (all other failures)
 ```json
-{ "message": "Unauthenticated." }              // 401 - missing token / token_version mismatch
-{ "message": "Invalid or expired token." }     // 401 - bad signature / expired
+{ "message": "Unauthenticated.", "error": "unauthenticated" }    // 403 - v3 auth denial (was 401 `"Unauthenticated."` in v2)
+{ "message": "Invalid or expired token.", "error": "unauthenticated" }    // 403 - v3 auth denial (was 401 `"Invalid or expired token."` in v2)
+// plain 403s (`Forbidden.`, `Admin access required.`, `Feature disabled.`,
+//   `Invalid status transition.`, `Forbidden origin.`) and the 419 CSRF
+//   token mismatch carry NO `"error"` field - the presence of `"error"` is
+//   the reliable "authentication was denied" signal.
 { "message": "Forbidden." }                    // 403 - policy gate (checkUser)
 { "message": "Admin access required." }        // 403 - non-admin on /user* (LIST excepted)
 { "message": "Feature disabled." }             // 403 - disabled feature endpoint

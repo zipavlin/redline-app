@@ -1,16 +1,20 @@
-# Redline MCP Server (v2)
+# Redline MCP Server (v3)
 
 Base URL: `{mcp}` = `/{redline.path}/api/mcp`, default `/redline/api/mcp`
 (host knob `REDLINE_PATH` / `config('redline.path')`).
 
-An additive MCP (Model Context Protocol) surface on top of the v2 HTTP API. It
+An additive MCP (Model Context Protocol) surface on top of the v3 HTTP API. It
 lets AI agents (Claude Code, OpenCode, Codex) read and write Redline reports
-through the same data model and permission model the HTTP endpoints expose. The
-MCP surface is additive, so the wire version **stays 2**: per the versioning
-policy in `README.md`, additive changes (new optional request fields, new
-filters, new endpoints the frontend can ignore) are contract-compatible and may
-ship without a coordinated release. The bootstrap payload is unchanged - no new
-bootstrap field and no `version` change (see `bootstrap.md`).
+through the same data model and permission model the HTTP endpoints expose. MCP
+semantics are unchanged in v3: the route keeps HTTP 401 and the
+`WWW-Authenticate: Bearer` challenge because browser-inert MCP clients expect
+401 semantics - the removal of 401 from the browser API surface does not apply
+to it. The MCP surface is additive, so the wire version **stays 3**: per the
+versioning policy in `README.md`, additive changes (new optional request
+fields, new filters, new endpoints the frontend can ignore) are
+contract-compatible and may ship without a coordinated release. The bootstrap
+payload gains no MCP-specific field - the v3 `version` bump follows the HTTP
+contract, not the MCP surface (see `bootstrap.md`).
 
 No non-laravel backend implements this surface: `redline-laravel` (Composer
 package `zipavlin/redline`), built on the official `laravel/mcp` package, is
@@ -401,8 +405,11 @@ the HTTP `POST` endpoints.
 
 ## 5. Version and compatibility
 
-The wire version **stays 2**. The MCP surface is additive: the bootstrap
-payload is unchanged and no coordinated frontend release is needed. Per the
+The wire version **stays 3**. MCP semantics are unchanged: the MCP route keeps
+HTTP 401 and the `WWW-Authenticate: Bearer` challenge because browser-inert MCP
+clients expect 401 semantics - the removal of 401 from the browser API surface
+does not apply to it. The MCP surface is additive: the bootstrap payload gains
+no MCP-specific field and MCP additions need no coordinated release. Per the
 versioning policy in `README.md`: additive changes - new optional request
 fields, new filters, new endpoints the frontend can ignore - are
 contract-compatible and may ship without a coordinated release. Adding tools or

@@ -155,10 +155,10 @@ describe('AuthLogin', () => {
             expect(wrapper.text()).not.toContain('Network error')
         })
 
-        it('renders the joined summary (and no field errors) on a flat error payload', async () => {
+        it('renders the joined summary on the v3 403 credential-failure envelope', async () => {
             const { wrapper } = mountAuthLogin({
                 config: { surface: 'dashboard' },
-                loginResult: { ok: false, status: 401, data: { errors: ['Invalid credentials.'] } },
+                loginResult: { ok: false, status: 403, data: { errors: ['Invalid credentials.'], pending: false } },
             })
             await flushPromises()
 
@@ -360,3 +360,4 @@ describe('AuthLogin', () => {
         })
     })
 })
+

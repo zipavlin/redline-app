@@ -1,6 +1,7 @@
 import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import { useApi } from '@/composables/useApi'
+import { ApiResponseError } from '@/core/api/errors'
 import type { ListParams } from '@/core/api/params'
 import { reportKeys } from '@/resources/report/keys'
 import type { AggregateResult } from '@/core/api/types'
@@ -14,7 +15,7 @@ export function useReportList(params: MaybeRefOrGetter<ListParams>, opts?: {
         queryKey: computed(() => reportKeys.list(toValue(params))),
         queryFn: async (): Promise<ReportListResponse> => {
             const res = await api.report.list(toValue(params))
-            if (!res.ok) throw new Error('Failed to load reports')
+            if (!res.ok) throw new ApiResponseError('Failed to load reports', res.status, res.data)
             return res.data
         },
         placeholderData: (prev) => prev,
@@ -40,7 +41,7 @@ export function useReportAggregate<T = AggregateResult>(
         ),
         queryFn: async (): Promise<AggregateResult> => {
             const res = await api.report.aggregate(toValue(params))
-            if (!res.ok) throw new Error('Failed to load aggregates')
+            if (!res.ok) throw new ApiResponseError('Failed to load aggregates', res.status, res.data)
             return res.data
         },
         ...(opts?.select && { select: opts.select }),

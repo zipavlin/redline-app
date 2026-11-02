@@ -1,6 +1,7 @@
 import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import { useApi } from '@/composables/useApi'
+import { ApiResponseError } from '@/core/api/errors'
 import { commentKeys } from '@/resources/comment/keys'
 import type { Comment } from '@/resources/comment/model'
 
@@ -11,7 +12,7 @@ export function useComments(reportId: MaybeRefOrGetter<string | null | undefined
         enabled: computed(() => !!toValue(reportId)),
         queryFn: async (): Promise<Comment[]> => {
             const res = await api.comment.index(toValue(reportId) as string)
-            if (!res.ok) throw new Error('Failed to load comments')
+            if (!res.ok) throw new ApiResponseError('Failed to load comments', res.status, res.data)
             return res.data
         },
     })

@@ -53,7 +53,11 @@ export class ApiClient {
 
     async request<T = unknown>(method: Method, path: string, { body, isFormData = false }: RequestOptions = {}): Promise<ApiResult<T>> {
         const url = `${this.#baseUrl}/${path}`
-        const headers: Record<string, string> = { Accept: 'application/json' }
+        const headers: Record<string, string> = {
+            // Stable host-side marker: hosts fronting the API (e.g. behind Basic Auth) can key on it to exempt these calls.
+            Accept: 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        }
 
         if (!isFormData && body != null) {
             headers['Content-Type'] = 'application/json'

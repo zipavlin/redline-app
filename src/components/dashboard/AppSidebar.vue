@@ -79,7 +79,7 @@ async function logout() {
             window.location.reload()
         } else {
             /**
-             * Server refused the logout (401/403/419/500…). Keep the session intact
+             * Server refused the logout (403/419/500…). Keep the session intact
              * and tell the user instead of silently reloading back into an
              * authenticated app.
              */

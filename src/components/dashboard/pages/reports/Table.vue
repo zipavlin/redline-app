@@ -15,6 +15,7 @@ import { dueColor, dueIcon, dueShortLabel, dueState, isDueAtUsable } from '@/dom
 import { useReportList, useReportAggregate } from '@/resources/report/queries'
 import { useMemberCandidates } from '@/resources/user/queries'
 import ReportFilterTags from '@/components/dashboard/pages/reports/ReportFilterTags.vue'
+import { isMemberFilterDenied } from '@/components/dashboard/pages/reports/memberFilter'
 import DateRangeField from '@/components/shared/ui/DateRangeField.vue'
 
 const store = useStore<DashboardStore>()
@@ -131,7 +132,14 @@ const memberIds = computed({
     set: (value: string[] | undefined) => { store.report.filter.memberIds = value ?? [] },
 })
 
-const memberFilterDenied = computed(() => (membersError.value as { status?: number } | null)?.status === 403)
+/**
+ * A plain 403 is the member-policy denial; a 403 carrying the
+ * `unauthenticated` marker is a dead session and must NOT deny the filter.
+ * The cached-user gate in `showMemberFilter` holds only at mount - a session
+ * dying mid-session leaves auth.user populated - so the query error is
+ * checked here on every refetch.
+ */
+const memberFilterDenied = computed(() => isMemberFilterDenied(membersError.value))
 
 const showMemberFilter = computed(() => store.auth.user?.isDeveloper === true && !memberFilterDenied.value)
 

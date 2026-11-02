@@ -1,4 +1,4 @@
-# Redline Query Grammar (v2)
+# Redline Query Grammar (v3)
 
 Generic REST grammar shared by the collection endpoints of `report` and
 `user`. Implemented in `redline-laravel` `src/Http/Query/*`; each resource

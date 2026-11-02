@@ -97,3 +97,20 @@ describe('ApiClient transport wiring', () => {
         expect(header(init, 'X-Redline-CSRF')).toBe('csrf-xyz')
     })
 })
+
+describe('ApiClient X-Requested-With marker', () => {
+    it('sends the X-Requested-With marker on every transport and method', async () => {
+        const fetchMock = mockFetch()
+        const cookieClient = new ApiClient('https://app.test/redline/api', new CookieTransport())
+        const bearerClient = new ApiClient('https://app.test/redline/api', new BearerTransport(() => 'jwt.abc'))
+
+        await cookieClient.get('auth/me')
+        await cookieClient.post('auth/login', { email: 'a@b.c', password: 'pw' })
+        await bearerClient.get('auth/me')
+
+        expect(fetchMock.mock.calls).toHaveLength(3)
+        for (const call of fetchMock.mock.calls) {
+            expect(header(requestInfo(call).init, 'X-Requested-With')).toBe('XMLHttpRequest')
+        }
+    })
+})

@@ -1,3 +1,22 @@
+# v0.2.1 (2026-11-02)
+
+## Fixed
+
+- Works on password-protected sites - on hosts protected by server-side
+  Basic Auth, loading a page or opening and submitting a report while signed
+  out no longer pops up the browser's native login prompt over and over. The
+  widget now stays silent behind Basic Auth.
+- Clear "session expired" notices - when your session expires mid-edit
+  (for example while assigning members or setting a due date), the dashboard
+  now tells you the session has expired and to sign in again, instead of a
+  confusing permission error.
+
+## Changed
+
+- Contract version 3 - the widget and dashboard speak contract version 3
+  with the paired backend release. See `contracts/` for what changed on the
+  wire.
+
 # v0.2.0 (2026-10-14)
 
 ## Added

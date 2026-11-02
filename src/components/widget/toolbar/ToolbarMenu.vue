@@ -50,7 +50,7 @@ async function logout() {
             store.unresolvedCount = 0
         } else {
             /**
-             * Server refused the logout (401/403/419/500…). Keep the session intact
+             * Server refused the logout (403/419/500…). Keep the session intact
              * and tell the user instead of silently dropping the authenticated UI.
              */
             toast.add({ title: 'Could not log out', color: 'error' })

@@ -7,8 +7,10 @@
 import { nextTick, reactive, watch } from 'vue'
 import { identity } from '@/core/storage'
 import { roleFlags } from '@/domain/role'
+import { isUnauthenticatedBody } from '@/core/api/errors'
+import type { ApiResult } from '@/core/api/types'
 import type { RedlineContext } from '@/composables/useApi'
-import type { AuthUser } from '@/resources/auth/model'
+import type { AuthMe, AuthUser } from '@/resources/auth/model'
 
 export interface AuthState {
     user: (AuthUser & { isDeveloper: boolean; isAdmin: boolean }) | null
@@ -21,6 +23,15 @@ function toAuthUser(user: AuthUser): NonNullable<AuthState['user']> {
         ...user,
         ...roleFlags(user.role),
     }
+}
+
+/**
+ * v3 me() semantics: signed out is either a 200 anonymous body (`user: null`)
+ * or a 403 carrying the `unauthenticated` error marker.
+ */
+function isUserSignedOut(result: ApiResult<AuthMe>): boolean {
+    if (result.ok) return result.data === null || result.data.user === null
+    return result.status === 403 && isUnauthenticatedBody(result.data)
 }
 
 export function authSlice(redline: RedlineContext) {
@@ -61,7 +72,7 @@ export function authSlice(redline: RedlineContext) {
                 auth.user = toAuthUser(user)
                 await _refreshRememberedSession(user)
                 identity.markTokenVerified()
-            } else if (result.status === 401) {
+            } else if (isUserSignedOut(result)) {
                 identity.clearUser()
                 identity.clearTokenVerified()
                 auth.user = null

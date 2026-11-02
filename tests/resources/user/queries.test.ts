@@ -133,12 +133,15 @@ describe('useMemberCandidates', () => {
         const { result } = mountResource(
             () => useMemberCandidates({}),
             makeApi,
-            (api) => api.user.index.mockResolvedValue({ ok: false, status: 403, data: null }),
+            (api) => api.user.index.mockResolvedValue({ ok: false, status: 403, data: { error: 'unauthenticated' } }),
         )
         await flushPromises()
 
         expect(result.isError.value).toBe(true)
         expect((result.error.value as unknown as { status?: number })?.status).toBe(403)
+        // The body rides along so UI can discriminate the v3 auth-denial marker
+        // from a member-policy denial (unauthenticated vs plain 403).
+        expect(result.error.value).toHaveProperty('data', { error: 'unauthenticated' })
     })
 })
 

@@ -67,10 +67,10 @@ describe('authSlice', () => {
         expect(auth.user).toBeNull()
     })
 
-    it('clears the cached user when the session check returns 401', async () => {
+    it('clears the prepopulated cached user once the session check reports signed out', async () => {
         seedCachedUser()
         const redline = createRedline()
-        redline.api.auth.me.mockResolvedValue({ ok: false, status: 401, data: null })
+        redline.api.auth.me.mockResolvedValue({ ok: true, status: 200, data: { user: null } })
 
         const { auth } = authSlice(redline)
         // Prepopulated synchronously, cleared once the check lands.
@@ -234,11 +234,11 @@ describe('authSlice', () => {
         function exchangeRedline() {
             const redline = createRedline()
             redline.config.loginMode = 'session'
-            redline.api.auth.me.mockResolvedValue({ ok: false, status: 401, data: null })
+            redline.api.auth.me.mockResolvedValue({ ok: true, status: 200, data: { user: null } })
             return redline
         }
 
-        it('exchanges the host session on a 401 me and activates the returned user', async () => {
+        it('exchanges the host session when me reports signed out and activates the returned user', async () => {
             const redline = exchangeRedline()
             redline.api.auth.login.mockResolvedValue({ ok: true, status: 200, data: { user: { ...ME_OK().data.user } } })
 
@@ -268,7 +268,7 @@ describe('authSlice', () => {
         it('never calls login in credentials mode', async () => {
             const redline = createRedline()
             redline.config.loginMode = 'credentials'
-            redline.api.auth.me.mockResolvedValue({ ok: false, status: 401, data: null })
+            redline.api.auth.me.mockResolvedValue({ ok: true, status: 200, data: { user: null } })
 
             authSlice(redline)
             await vi.waitFor(() => expect(redline.api.auth.me).toHaveBeenCalled())
@@ -301,7 +301,7 @@ describe('authSlice', () => {
 
         it('silently ignores a non-2xx exchange result', async () => {
             const redline = exchangeRedline()
-            redline.api.auth.login.mockResolvedValue({ ok: false, status: 401, data: null })
+            redline.api.auth.login.mockResolvedValue({ ok: false, status: 403, data: null })
 
             const { auth } = authSlice(redline)
             await vi.waitFor(() => expect(redline.api.auth.login).toHaveBeenCalledTimes(1))
@@ -340,9 +340,9 @@ describe('authSlice', () => {
                 config,
                 api: {
                     auth: {
-                        me: vi.fn().mockResolvedValue({ ok: false, status: 401, data: null }),
+                        me: vi.fn().mockResolvedValue({ ok: true, status: 200, data: { user: null } }),
                         refresh: vi.fn(),
-                        login: vi.fn().mockResolvedValue({ ok: false, status: 401, data: null }),
+                        login: vi.fn().mockResolvedValue({ ok: false, status: 403, data: null }),
                     },
                 },
             } as any
@@ -365,5 +365,114 @@ describe('authSlice', () => {
             await drainPromises()
             expect(redline.api.auth.login).toHaveBeenCalledTimes(1)
         })
+    })
+})
+
+describe('me() contract v3', () => {
+    beforeEach(() => {
+        localStorage.clear()
+        sessionStorage.clear()
+    })
+
+    afterEach(() => {
+        vi.restoreAllMocks()
+    })
+
+    it('clears the session on a 200 anonymous body (user: null) and never exchanges in credentials mode', async () => {
+        seedCachedUser()
+        sessionStorage.setItem('redline_session_verified', '1')
+        const redline = createRedline()
+        redline.api.auth.me.mockResolvedValue({ ok: true, status: 200, data: { user: null } })
+
+        const { auth } = authSlice(redline)
+        await vi.waitFor(() => expect(auth.user).toBeNull())
+
+        expect(localStorage.getItem('redline_name')).toBeNull()
+        expect(localStorage.getItem('redline_email')).toBeNull()
+        expect(sessionStorage.getItem('redline_session_verified')).toBeNull()
+        expect(redline.api.auth.login).not.toHaveBeenCalled()
+    })
+
+    it('takes the same signed-out path on a 403 carrying the unauthenticated marker', async () => {
+        seedCachedUser()
+        const redline = createRedline()
+        redline.api.auth.me.mockResolvedValue({ ok: false, status: 403, data: { error: 'unauthenticated' } })
+
+        const { auth } = authSlice(redline)
+        await vi.waitFor(() => expect(auth.user).toBeNull())
+
+        expect(localStorage.getItem('redline_email')).toBeNull()
+        expect(redline.api.auth.login).not.toHaveBeenCalled()
+    })
+
+    it('keeps the cached user on a plain 403 without the unauthenticated marker', async () => {
+        seedCachedUser()
+        const redline = createRedline()
+        redline.api.auth.me.mockResolvedValue({ ok: false, status: 403, data: { message: 'This action is unauthorized.' } })
+
+        const { auth } = authSlice(redline)
+        await drainPromises()
+
+        expect(auth.user).toEqual(expect.objectContaining({ name: 'Ada', email: 'ada@example.com' }))
+        expect(localStorage.getItem('redline_email')).toBe('ada@example.com')
+        expect(redline.api.auth.login).not.toHaveBeenCalled()
+    })
+
+    it('attempts the host-session exchange on a 200 anonymous body in session mode', async () => {
+        seedCachedUser()
+        const redline = createRedline()
+        redline.config.loginMode = 'session'
+        redline.api.auth.me.mockResolvedValue({ ok: true, status: 200, data: { user: null } })
+
+        const { auth } = authSlice(redline)
+        await vi.waitFor(() => expect(redline.api.auth.login).toHaveBeenCalledTimes(1))
+
+        expect(redline.api.auth.login).toHaveBeenCalledWith({})
+        expect(auth.user).toBeNull()
+    })
+
+    it('attempts the host-session exchange on a 403 signed-out response in session mode', async () => {
+        seedCachedUser()
+        const redline = createRedline()
+        redline.config.loginMode = 'session'
+        redline.api.auth.me.mockResolvedValue({ ok: false, status: 403, data: { error: 'unauthenticated' } })
+
+        const { auth } = authSlice(redline)
+        await vi.waitFor(() => expect(redline.api.auth.login).toHaveBeenCalledTimes(1))
+
+        expect(redline.api.auth.login).toHaveBeenCalledWith({})
+        expect(auth.user).toBeNull()
+    })
+
+    it('stays signed out without throwing when the exchange answers the v3 403 errors envelope', async () => {
+        seedCachedUser()
+        const redline = createRedline()
+        redline.config.loginMode = 'session'
+        redline.api.auth.me.mockResolvedValue({ ok: true, status: 200, data: { user: null } })
+        redline.api.auth.login.mockResolvedValue({
+            ok: false,
+            status: 403,
+            data: { errors: ['Invalid credentials.'], pending: false },
+        })
+
+        const { auth } = authSlice(redline)
+        await vi.waitFor(() => expect(redline.api.auth.login).toHaveBeenCalledTimes(1))
+        await drainPromises()
+
+        expect(auth.user).toBeNull()
+        expect(localStorage.getItem('redline_email')).toBeNull()
+    })
+
+    it('keeps the cached user on a non-ok response that is not an auth deny', async () => {
+        seedCachedUser()
+        const redline = createRedline()
+        redline.api.auth.me.mockResolvedValue({ ok: false, status: 500, data: null })
+
+        const { auth } = authSlice(redline)
+        await vi.waitFor(() => expect(redline.api.auth.me).toHaveBeenCalled())
+        await drainPromises()
+
+        expect(auth.user).toEqual(expect.objectContaining({ name: 'Ada' }))
+        expect(redline.api.auth.login).not.toHaveBeenCalled()
     })
 })

@@ -6,6 +6,7 @@ import { getBrowserInfo } from '@/core/browser'
 import { getCssSelector, resolveSelector } from '@/core/selector'
 import { pagePixelsToPin, pinToElementPixels } from '@/domain/pin'
 import type { Priority } from '@/domain/priority'
+import { isUnauthenticatedBody } from '@/core/api/errors'
 import { reportKeys } from '@/resources/report/keys'
 import type { Member, Report } from '@/resources/report/model'
 
@@ -304,21 +305,33 @@ export function useRemoveMembersMutation() {
 }
 
 /**
+ * A 403 is not always a permission failure under contract v3: an auth-denied
+ * response carries the `unauthenticated` `error` marker in its body, meaning
+ * the session died mid-edit - a retry needs a re-login, not a permission.
+ */
+const SESSION_EXPIRED_MESSAGE = 'Your session has expired. Please sign in again.'
+
+/**
  * Map a member-mutation failure to a user-facing toast title: 422 uses the
- * server's message, 403 is a permission failure, anything else is the fallback.
+ * server's message, a plain 403 is a permission failure, a 403 carrying the
+ * unauthenticated marker is an expired session, anything else is the fallback.
  */
 export function memberMutationError(error: unknown, fallback = 'Could not update members'): string {
     const response = (error as { response?: { status?: number; data?: { message?: string } } })?.response
     if (response?.status === 422 && response.data?.message) return response.data.message
-    if (response?.status === 403) return 'You do not have permission to change members'
+    if (response?.status === 403) {
+        return isUnauthenticatedBody(response.data) ? SESSION_EXPIRED_MESSAGE : 'You do not have permission to change members'
+    }
     return fallback
 }
 
-/** Map a due-date mutation failure to a user-facing toast title (422/403/fallback). */
+/** Map a due-date mutation failure to a user-facing toast title (422/403/session/fallback). */
 export function dueMutationError(error: unknown, fallback = 'Could not update due date'): string {
     const response = (error as { response?: { status?: number; data?: { message?: string } } })?.response
     if (response?.status === 422 && response.data?.message) return response.data.message
-    if (response?.status === 403) return 'You do not have permission to change the due date'
+    if (response?.status === 403) {
+        return isUnauthenticatedBody(response.data) ? SESSION_EXPIRED_MESSAGE : 'You do not have permission to change the due date'
+    }
     return fallback
 }
 

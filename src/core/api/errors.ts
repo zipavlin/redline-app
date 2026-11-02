@@ -86,3 +86,56 @@ export function parseApiErrors(data: unknown): ParsedApiErrors {
      */
     return { fieldErrors: {}, summary: null }
 }
+
+/**
+ * Carries the HTTP status and (optionally) the response body alongside the message so
+ * query retry logic and UI can discriminate auth denies (never retried) from retryable
+ * failures and react to the response body (e.g. the auth-denial marker) without re-fetching.
+ */
+export class ApiResponseError extends Error {
+    readonly status: number
+    readonly data?: unknown
+
+    constructor(message: string, status: number, data?: unknown) {
+        super(message)
+        this.name = 'ApiResponseError'
+        this.status = status
+        this.data = data
+    }
+}
+
+/**
+ * Auth-deny statuses are never retried: a retry cannot fix them. A 403 is an
+ * auth denial (dead session or a permission refusal) that would repeat
+ * identically, and a 419 is an expired CSRF token that only a fresh page
+ * load can renew.
+ */
+const AUTH_DENIAL_STATUSES = new Set([403, 419])
+
+export function isAuthDenialStatus(status: number): boolean {
+    return AUTH_DENIAL_STATUSES.has(status)
+}
+
+/**
+ * The stable auth-deny discriminator under contract v3: every auth-denied
+ * response is a 403 whose body carries this `error` field. Plain 403s
+ * (member-policy denial, feature disabled, forbidden origin) carry no `error`
+ * field, so only the body - never the status code alone - can tell a dead
+ * session from a permission denial.
+ */
+export const UNAUTHENTICATED_MARKER = 'unauthenticated'
+
+/** True when the body is a non-null object whose `error` is the v3 marker. */
+export function isUnauthenticatedBody(data: unknown): boolean {
+    return isRecord(data) && data.error === UNAUTHENTICATED_MARKER
+}
+
+/**
+ * Duck-typed so plain Error with no status falls through and any error shape
+ * carrying a matching numeric status (ApiResponseError included) is caught.
+ */
+export function isAuthDenialError(error: unknown): boolean {
+    if (typeof error !== 'object' || error === null) return false
+    const status = (error as { status?: unknown }).status
+    return typeof status === 'number' && isAuthDenialStatus(status)
+}

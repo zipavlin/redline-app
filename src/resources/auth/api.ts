@@ -7,6 +7,7 @@ export function makeAuthApi(client: ApiClient) {
         register: (data: Record<string, unknown>): Promise<ApiResult<AuthSuccess>> => client.post<AuthSuccess>('auth/register', data),
         login: (data: Record<string, unknown>): Promise<ApiResult<AuthSuccess>> => client.post<AuthSuccess>('auth/login', data),
         me: (): Promise<ApiResult<AuthMe>> => client.get<AuthMe>('auth/me'),
+        updateMe: (data: { notify_new_reports: boolean }): Promise<ApiResult<AuthSuccess>> => client.patch<AuthSuccess>('auth/me', data),
         refresh: (): Promise<ApiResult<AuthSuccess>> => client.get<AuthSuccess>('auth/refresh'),
         logout: (): Promise<ApiResult<null>> => client.delete<null>('auth'),
 

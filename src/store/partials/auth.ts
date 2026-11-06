@@ -142,5 +142,29 @@ export function authSlice(redline: RedlineContext) {
         callback?.()
     }
 
-    return { auth, activateSession }
+    /**
+     * Self-service preference (PATCH /auth/me). Optimistic: the toggle flips
+     * immediately and reverts when the call fails, so the UI never lies about
+     * server state.
+     */
+    async function setNotifyNewReports(value: boolean): Promise<boolean> {
+        const user = auth.user
+        if (!user) return false
+        const previous = user.notify_new_reports
+        user.notify_new_reports = value
+        try {
+            const result = await redline.api.auth.updateMe({ notify_new_reports: value })
+            if (!result.ok || !result.data?.user) {
+                user.notify_new_reports = previous
+                return false
+            }
+            auth.user = toAuthUser(result.data.user)
+            return true
+        } catch {
+            user.notify_new_reports = previous
+            return false
+        }
+    }
+
+    return { auth, activateSession, setNotifyNewReports }
 }

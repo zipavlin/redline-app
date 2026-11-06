@@ -17,13 +17,16 @@ import Logo from '@/components/shared/ui/Logo.vue'
 
 const store = useStore<DashboardStore>()
 const router = useRouter()
-const { api } = useRedline()
+const { api, config } = useRedline()
 const toast = useToast()
 
 const loggingOut = ref(false)
 
 // Computed
 const user = computed(() => store.auth.user)
+const isMailConfigured = computed(() => Boolean((config as { mailConfigured?: boolean }).mailConfigured))
+const canReceiveReportMail = computed(() => isMailConfigured.value && (user.value?.isDeveloper === true || user.value?.isAdmin === true))
+const notifyNewReports = computed(() => user.value?.notify_new_reports !== false)
 
 const links = computed(() => {
     return [
@@ -66,6 +69,13 @@ function applyMine() {
     store.report.filter.mine = true
     store.report.filter.statusGroup = 'all'
     router.push('/reports')
+}
+
+async function toggleNotifyNewReports(value: boolean) {
+    const ok = await store.setNotifyNewReports(value)
+    if (!ok) {
+        toast.add({ title: 'Could not save the notification setting', color: 'error' })
+    }
 }
 
 async function logout() {
@@ -151,6 +161,15 @@ async function logout() {
                                 square
                                 :aria-label="`Switch to ${store.settings.theme === 'dark' ? 'light' : 'dark'} theme`"
                                 @click="store.settings.theme = store.settings.theme === 'dark' ? 'light' : 'dark'"
+                            />
+                        </div>
+
+                        <div v-if="canReceiveReportMail" class="flex items-center justify-between px-3 py-2">
+                            <span class="text-muted">Receive emails</span>
+                            <USwitch
+                                :model-value="notifyNewReports"
+                                :aria-label="notifyNewReports ? 'Turn off new-report emails' : 'Turn on new-report emails'"
+                                @update:model-value="toggleNotifyNewReports"
                             />
                         </div>
 

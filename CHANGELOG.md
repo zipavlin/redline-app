@@ -1,3 +1,14 @@
+# v0.3.0 ()
+
+## Added
+
+- **Turn off new-report emails** - a "Receive emails" switch in the dashboard
+  account menu (click your name in the sidebar). Developers and admins can
+  stop the per-report notification emails for themselves and turn them back
+  on anytime. The switch only appears when the server can actually send mail,
+  and if saving fails it snaps back with an error notice instead of silently
+  lying about the state.
+
 # v0.2.1 (2026-11-02)
 
 ## Fixed

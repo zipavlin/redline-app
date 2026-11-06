@@ -366,6 +366,60 @@ describe('authSlice', () => {
             expect(redline.api.auth.login).toHaveBeenCalledTimes(1)
         })
     })
+
+    describe('setNotifyNewReports', () => {
+        function meWithPreference(redline: ReturnType<typeof createRedline>, updateResult: unknown) {
+            redline.api.auth.me.mockResolvedValue(ME_OK({ notify_new_reports: true }))
+            redline.api.auth.updateMe = vi.fn().mockResolvedValue(updateResult)
+            return redline
+        }
+
+        it('optimistically flips the flag and adopts the server row on success', async () => {
+            const redline = meWithPreference(createRedline(), {
+                ok: true,
+                status: 200,
+                data: { user: { id: 'u1', name: 'Ada', email: 'ada@example.com', role: 'developer', notify_new_reports: false } },
+            })
+
+            const { auth, setNotifyNewReports } = authSlice(redline)
+            await vi.waitFor(() => expect(auth.user).not.toBeNull())
+
+            const ok = await setNotifyNewReports(false)
+            await drainPromises()
+
+            expect(ok).toBe(true)
+            expect(redline.api.auth.updateMe).toHaveBeenCalledWith({ notify_new_reports: false })
+            expect(auth.user?.notify_new_reports).toBe(false)
+        })
+
+        it('reverts the flag when the server rejects the update', async () => {
+            const redline = meWithPreference(createRedline(), { ok: false, status: 422, data: null })
+
+            const { auth, setNotifyNewReports } = authSlice(redline)
+            await vi.waitFor(() => expect(auth.user).not.toBeNull())
+
+            const ok = await setNotifyNewReports(false)
+            await drainPromises()
+
+            expect(ok).toBe(false)
+            expect(auth.user?.notify_new_reports).toBe(true)
+        })
+
+        it('reverts the flag on a network failure', async () => {
+            const redline = createRedline()
+            redline.api.auth.me.mockResolvedValue(ME_OK({ notify_new_reports: true }))
+            redline.api.auth.updateMe = vi.fn().mockRejectedValue(new Error('network down'))
+
+            const { auth, setNotifyNewReports } = authSlice(redline)
+            await vi.waitFor(() => expect(auth.user).not.toBeNull())
+
+            const ok = await setNotifyNewReports(false)
+            await drainPromises()
+
+            expect(ok).toBe(false)
+            expect(auth.user?.notify_new_reports).toBe(true)
+        })
+    })
 })
 
 describe('me() contract v3', () => {

@@ -19,7 +19,7 @@ export const useDashboardStore = defineStore('redline-dashboard', () => {
     // State
     const redline = inject<RedlineContext>('redline') as RedlineContext
 
-    const { auth, activateSession } = authSlice(redline)
+    const { auth, activateSession, setNotifyNewReports } = authSlice(redline)
     const { settings } = settingsSlice(redline)
     const { report, reportFilterParams, reportListParams, openReport, closeReport } = reportSlice(redline, auth)
     const { users, userListParams, openUser, closeUser } = usersSlice(redline)
@@ -38,6 +38,7 @@ export const useDashboardStore = defineStore('redline-dashboard', () => {
     return {
         auth,
         activateSession,
+        setNotifyNewReports,
         settings,
         report,
         reportFilterParams,

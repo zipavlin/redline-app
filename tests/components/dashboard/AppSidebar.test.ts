@@ -10,7 +10,9 @@ vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn() }) }))
 import AppSidebar from '@/components/dashboard/AppSidebar.vue'
 import { identity } from '@/core/storage'
 
-const user = { id: 'u1', name: 'Ada', email: 'ada@test.dev', role: 'reporter' }
+type TestUser = { id: string; name: string; email: string; role: string; isDeveloper?: boolean; isAdmin?: boolean }
+
+const user: TestUser = { id: 'u1', name: 'Ada', email: 'ada@test.dev', role: 'reporter' }
 
 let store: ReturnType<typeof makeStore>
 let reload: ReturnType<typeof vi.fn>
@@ -21,6 +23,7 @@ function makeStore(currentUser: typeof user | null = user) {
         auth: { user: currentUser },
         settings: { theme: 'light' },
         report: { filter: { mine: false, statusGroup: 'all' } },
+        setNotifyNewReports: vi.fn().mockResolvedValue(true),
     }
 }
 
@@ -31,12 +34,12 @@ function makeStore(currentUser: typeof user | null = user) {
  * standalone; only the UPopover content is teleported into <body>, so assertions
  * read the account menu from there (same pattern as AuthLogin.test.ts).
  */
-function mountSidebar(api: { logout: () => Promise<unknown> }) {
-    store = makeStore()
+function mountSidebar(api: { logout: () => Promise<unknown> }, config: Record<string, unknown> = {}, currentUser: typeof user | null = user) {
+    store = makeStore(currentUser)
     return mount(AppSidebar, {
         global: {
             provide: {
-                redline: { api: { auth: api }, config: {} },
+                redline: { api: { auth: api }, config },
                 store,
             },
         },
@@ -126,5 +129,41 @@ describe('AppSidebar logout', () => {
         expect(store.auth.user).toEqual(user)
         expect(reload).not.toHaveBeenCalled()
         expect(toastAdd).toHaveBeenCalledWith({ title: 'Could not log out - check your connection', color: 'error' })
+    })
+})
+
+describe('New-report emails toggle', () => {
+    function rowInMenu(): HTMLElement | undefined {
+        // The toggle is the only role=switch in the account menu (the theme row is a button).
+        return document.body.querySelector('[role="switch"]') as HTMLElement | undefined
+    }
+
+    async function openMenuAndFindRow(config: Record<string, unknown>, role = 'developer') {
+        const logout = vi.fn().mockResolvedValue({ ok: true, status: 204, data: null })
+        wrapper = mountSidebar({ logout }, config, {
+            ...user,
+            role,
+            isDeveloper: role === 'developer' || role === 'admin',
+            isAdmin: role === 'admin',
+        })
+        const trigger = wrapper.findAll('button').find(b => b.text()?.includes('Ada'))!
+        await trigger.trigger('click')
+        await flushModal()
+        return rowInMenu()
+    }
+
+    it('shows the toggle for a developer when mail is configured', async () => {
+        const row = await openMenuAndFindRow({ mailConfigured: true })
+        expect(row, 'toggle row should render when mail is configured').toBeDefined()
+    })
+
+    it('hides the toggle when no mailer is configured', async () => {
+        const row = await openMenuAndFindRow({})
+        expect(row).toBeNull()
+    })
+
+    it('hides the toggle for a reporter even when mail is configured', async () => {
+        const row = await openMenuAndFindRow({ mailConfigured: true }, 'reporter')
+        expect(row).toBeNull()
     })
 })

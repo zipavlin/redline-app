@@ -4,6 +4,7 @@ export interface AuthUser {
     email: string
     role: string
     status?: string
+    notify_new_reports?: boolean
     [key: string]: unknown
 }
 

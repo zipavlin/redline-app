@@ -34,4 +34,5 @@ phpstan.neon
 /.junie
 /.agents
 /.openchamber
+.gortex.yaml
 skills-lock.json

@@ -1,8 +1,43 @@
 # AGENTS.md - Redline App (frontend)
 
+<!-- bmad:context -->
+<!-- Verified 2026-11-10 against 7fdacf7. Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
+
+## redline-app
+
+Frontend for Redline: the widget (floating Shadow-DOM bug-report toolbar for host pages) and the dashboard (standalone review SPA). Vue 3 + TypeScript, Vite, Nuxt UI v4; npm package `redline-app`, `"private": true` — never published to npm. Backend: sibling `redline-laravel` (owned builds + handoff boundary, below).
+
+## Policy
+
+- Contract source of truth: `contracts/` (currently version 3, 8 files). Breaking changes bump the contract version together with the backend wire version in `BootstrapController` and the parent `manifest.yaml`.
+- The built IIFE bundles in `dist/` → `public/` handoff are the release boundary (see parent); no `window.RedlineDashboard` API promises.
+
+## Where things are
+
+- Both entries build from one `vite.config.ts` (REDLINE_TARGET passes); TipTap/ProseMirror packages must stay in both `resolve.dedupe` and `optimizeDeps.include` — two copies throw plugin-key errors.
+- Layering is enforced by `.dependency-cruiser.cjs`: downward only — `domain/` ← `core/` ← `resources/` ← `store/` ← `components/`, with `composables/` usable by `resources/`, `store/`, `components/`. No new top-level layer without updating the config.
+- Cross-documentation and handoff details live below in the long-form sections (architecture, testing quirks, conventions).
+
+## Running and verifying
+
+- Verify in order: `npm run type-check && npm run test && npm run lint:boundaries`, then `npm run build`. Vitest runs on happy-dom from `tests/` only.
+- CI: `.github/workflows/ci.yml` (type-check, test, boundaries, build) + weekly dependabot. There is no release workflow on disk.
+
+## Conventions that differ from defaults
+
+- Element attributes carry only transport/placement config (`api`/`dashboard`/`csrf`/`theme`); everything else comes from the bootstrap endpoint and fails closed.
+- Aggregate numbers come only from the generic `/aggregate` endpoint; dark mode is driven by `store.settings.theme` (widget sets `.dark` on its shadow wrapper, dashboard on its `<html>`, Nuxt UI `colorMode: false`).
+
+## Known pitfalls
+
+- Test-file counts drift between releases — trust the run, not stored numbers.
+- `npm ci` from a lockfile regenerated on npm < 11.3 drops other-platform native bindings and breaks Linux CI; regenerate only from a clean state with npm ≥ 11.3.
+
+<!-- /bmad:context -->
+
 Frontend for Redline (public repo `github.com/zipavlin/redline-app`): the **widget**
 (a floating bug-reporting toolbar embedded in host pages) and the **dashboard** (a
-standalone review SPA). Vue 3 + TypeScript + Vite 6 + Nuxt UI v4. npm package
+standalone review SPA). Vue 3 + TypeScript + Vite 8 + Nuxt UI v4. npm package
 `redline-app`, `"private": true` - **not published to npm**. Backend lives in the sibling
 **redline-laravel** repo (see "Related repositories").
 
@@ -10,51 +45,10 @@ standalone review SPA). Vue 3 + TypeScript + Vite 6 + Nuxt UI v4. npm package
 > frontend, extracted out of a legacy monorepo. Facts below were verified against the
 > current code, not the legacy docs.
 
-## Commands
-
-```
-npm run dev               # Vite dev server :5173, serves BOTH entries as ESM
-npm run build             # both IIFE bundles (widget, then dashboard) → dist/
-npm run build:widget      # widget only (REDLINE_TARGET=widget)
-npm run build:dashboard   # dashboard only (REDLINE_TARGET=dashboard)
-npm run dev:build-widget  # unminified widget build (development mode)
-npm run dev:build-dashboard
-npm run test              # vitest run (happy-dom, tests/**/*.test.{js,ts})
-npm run test:watch        # vitest watch mode
-npm run type-check        # vue-tsc --noEmit (clean at extraction time)
-npm run lint:boundaries   # depcruise layering enforcement (.dependency-cruiser.cjs)
-```
-
-### Combined verification order
-```
-npm run type-check && npm run test && npm run lint:boundaries
-```
-
-## Test status (current baseline)
-
-- **75 test files / 796 tests** (`tests/`) - happy-dom via vitest, `globals: true`.
-  Note: tests live in `tests/`, **not** co-located under `src/`; there are no tests
-  under `src/`.
-- `npm run type-check` is **clean** (vue-tsc --noEmit).
-
 ## CI
 
-- `.github/workflows/ci.yml` - runs on push to `main` and on pull requests:
-  `npm ci` → `npm run type-check` → `npm run test` → `npm run lint:boundaries` →
-  `npm run build`; on pushes to `main` it uploads `dist/` as a GitHub Actions artifact
-  (temporary, not consumed automatically yet).
-- `.github/workflows/release.yml` - runs on tags matching `v*`: builds and creates a
-  GitHub Release attaching `dist/redline.js`, `dist/redline-dashboard.js`,
-  `dist/redline-dashboard.css` (no separate widget CSS - it is inlined). The Laravel
-  asset handoff (copying these into redline-laravel/public/) is still a manual step.
 - `.github/dependabot.yml` - weekly update PRs for npm and GitHub Actions dependencies.
 - `.gitignore` no longer excludes `/.github`.
-
-## API contract
-
-The consumer-side API contract lives in `contracts/` (contract version 1: README.md,
-api.md, query-grammar.md, bootstrap.md, bootstrap.schema.json, errors.md, auth.md) - the
-contract a backend must satisfy.
 
 ## Architecture
 
@@ -143,44 +137,6 @@ top-level layer** without updating `.dependency-cruiser.cjs`.
 
 - EditorConfig: LF line endings, 4-space indent, UTF-8.
 - TypeScript strict via `tsconfig.json`; `@` alias for `src/`.
-- `package-lock.json` IS committed; install with `npm ci` for reproducibility. Regenerate with `npm install` from a clean state (`rm -rf node_modules package-lock.json`) using npm >= 11.3.0: npm 10.3-11.2 prunes other-platform native bindings (rolldown/esbuild/tailwindcss/lightningcss) from the lockfile, which breaks `npm ci` on Linux CI. Any host works with npm >= 11.3.0; it records all platform variants.
 - Do not import `core/` from `domain/`; do not reach into `store/`/`components/` from
   `resources/` (depcruise enforces this).
 
-## Plans location
-
-- Repository plans live in `.openchamber/plans/` - pinned in
-  `.openchamber/project.json` (`plansDir`) - and **never** in `.opencode/plans/`.
-  OpenChamber's Context -> Plans tab reads only the configured folder, so a plan
-  written to `.opencode/plans/` never appears in the UI. The `plan` agent has the
-  same target; any other agent that writes a plan must use `.openchamber/plans/`.
-
-## Related repositories
-
-- **redline-laravel** (public, `github.com/zipavlin/redline-laravel`) - Composer package
-  `zipavlin/redline`; the backend (API, auth, storage, blade shells). Handoff: this
-  repo's `dist/` artifacts (`redline.js`, `redline-dashboard.js`,
-  `redline-dashboard.css`) are copied into redline-laravel's `public/` (committed) and
-  published via `vendor:publish --tag=redline-assets`. Dev via `REDLINE_VITE_URL` in the
-  host app.
-
-## Code quality - clean-code-guard
-
-Any session that writes or edits code in this workspace - parent or child - runs a
-clean-code guard pass over its changes **before presenting, committing, or merging**.
-
-- **Condensed checklist (always applies):**
-    - Names reveal intent - no `data`, `result`, `item`, `temp`, `utils`, `handle_*`.
-    - Functions ≤ 20 lines, ≤ 4 params, one thing; no boolean-flag args; no output args
-      (command/query separation).
-    - Comments explain *why*, never *what*; no commented-out code; match neighbor style.
-    - Catch only errors you can recover from; never swallow into silent null/empty success.
-    - Validate at trust boundaries (external input, request payloads); no defensive checks
-      inside the boundary.
-    - No speculative abstractions, config flags, or dead code (YAGNI); strip unused
-      imports/symbols before delivery.
-    - No hardcoded "ok"/fixture returns in production code; never weaken a test to pass.
-    - Verify library APIs against the installed version before calling; read the file you
-      edit and one neighbor first.
-    - No new dependency where the stdlib, installed packages, or a few lines suffice.
-    - Refactors preserve observable behavior; bug fixes are separate, flagged changes.

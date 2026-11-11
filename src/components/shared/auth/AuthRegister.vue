@@ -1,5 +1,16 @@
+<script lang="ts">
+import { ref } from 'vue'
+
+/**
+ * Module-scoped on purpose: on the standalone /register page the post-register
+ * redirect unmounts that AuthRegister and the dashboard shell mounts a fresh
+ * one, so the pending success modal must outlive any single instance.
+ */
+const successOpen = ref(false)
+</script>
+
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import { useStore } from '@/composables/useStore'
 import { useRedline } from '@/composables/useApi'
 import type { AuthField } from '@/resources/user/model'
@@ -85,6 +96,11 @@ function close() {
     store.auth.authView = 'login'
 }
 
+function startReporting() {
+    successOpen.value = false
+    window.location.assign(window.location.origin)
+}
+
 function onOpenUpdate(value: boolean) {
     if (!value) close()
 }
@@ -116,6 +132,7 @@ async function submit() {
         store.activateSession(user, token ?? undefined)
         toast.add({ title: `Welcome, ${user.name}!`, color: 'success' })
         close()
+        successOpen.value = true
     } catch {
         summary.value = 'Network error - please try again.'
     } finally {
@@ -240,6 +257,36 @@ async function submit() {
                     @click="submit"
                 />
                 <UButton variant="link" size="sm" trailing-icon="i-lucide-arrow-right" @click="store.auth.authView = 'login'">Already have an account? Sign in</UButton>
+            </div>
+        </template>
+    </UModal>
+
+    <UModal
+        v-if="successOpen"
+        :open="true"
+        :dismissible="true"
+        :close="true"
+        title="Registration successful"
+        description="You can now start reporting"
+        :ui="{ content: 'max-w-sm' }"
+        data-component="auth-register-success"
+        @update:open="successOpen = false"
+    >
+        <template #body>
+            <p class="text-sm">Your Redline account for this project is now created and you can start with the reporting.</p>
+        </template>
+        <template #footer>
+            <div class="flex w-full flex-col items-center gap-2">
+                <UButton
+                    block
+                    color="success"
+                    variant="subtle"
+                    size="lg"
+                    icon="i-lucide-user-round-plus"
+                    label="Start reporting"
+                    @click="startReporting"
+                />
+                <UButton variant="link" size="sm" trailing-icon="i-lucide-arrow-right" @click="successOpen = false">Continue to dashboard</UButton>
             </div>
         </template>
     </UModal>

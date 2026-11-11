@@ -118,6 +118,66 @@ describe('AuthRegister', () => {
             expect(store.auth.authView).toBe('login')
         })
 
+        describe('success modal', () => {
+            const SUCCESS = 'Congrats, your registration is successful'
+
+            async function registerOk() {
+                const mounted = mountAuthRegister()
+                await flushPromises()
+                await setInputs(mounted.wrapper, { name: 'Ada', email: 'ada@test.dev', password: 'secret' })
+                await submitRegister(mounted.wrapper)
+                return mounted
+            }
+
+            it('is hidden before registering and shown with both actions after a successful registration', async () => {
+                const { wrapper } = mountAuthRegister()
+                await flushPromises()
+                expect(wrapper.text()).not.toContain(SUCCESS)
+
+                await setInputs(wrapper, { name: 'Ada', email: 'ada@test.dev', password: 'secret' })
+                await submitRegister(wrapper)
+
+                expect(wrapper.text()).toContain(SUCCESS)
+                expect(findButton(wrapper, 'Dashboard')).toBeTruthy()
+                expect(findButton(wrapper, 'Start reporting')).toBeTruthy()
+            })
+
+            it('Dashboard closes the modal without navigating', async () => {
+                const assign = vi.fn()
+                vi.stubGlobal('location', { ...window.location, assign })
+                const { wrapper } = await registerOk()
+
+                await findButton(wrapper, 'Dashboard')!.trigger('click')
+
+                expect(wrapper.text()).not.toContain(SUCCESS)
+                expect(assign).not.toHaveBeenCalled()
+                vi.unstubAllGlobals()
+            })
+
+            it('Start reporting navigates to the host origin', async () => {
+                const assign = vi.fn()
+                vi.stubGlobal('location', { ...window.location, assign, origin: 'https://host.test' })
+                const { wrapper } = await registerOk()
+
+                await findButton(wrapper, 'Start reporting')!.trigger('click')
+
+                expect(assign).toHaveBeenCalledWith('https://host.test')
+                expect(wrapper.text()).not.toContain(SUCCESS)
+                vi.unstubAllGlobals()
+            })
+
+            it('is not shown for a pending (202) or failed registration', async () => {
+                const { wrapper } = mountAuthRegister({
+                    registerResult: { ok: true, status: 202, data: { errors: ['Needs approval.'], pending: true } },
+                })
+                await flushPromises()
+                await setInputs(wrapper, { name: 'Ada', email: 'ada@test.dev', password: 'secret' })
+                await submitRegister(wrapper)
+
+                expect(wrapper.text()).not.toContain(SUCCESS)
+            })
+        })
+
         it('shows a network error and does not activate the session when the request rejects', async () => {
             const { wrapper, store } = mountAuthRegister({
                 config: { surface: 'dashboard' },

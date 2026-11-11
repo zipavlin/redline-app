@@ -183,6 +183,15 @@ export function mountAuthLogin(options: MountAuthLoginOptions = {}) {
 
 /** Unmount every wrapper created by `mountAuthLogin` - call from `afterEach`. */
 export function unmountAuthMounts(): void {
+    /**
+     * The register success modal's open state is module-scoped (it must survive the
+     * /register  dashboard remount), so dismiss it before unmounting or it would
+     * leak into the next test.
+     */
+    for (const wrapper of mountedWrappers) {
+        const dismiss = wrapper.find('[data-component="auth-register-success"]')
+        if (dismiss.exists()) void findButton(wrapper, 'Dashboard')?.trigger('click')
+    }
     while (mountedWrappers.length) mountedWrappers.pop()?.unmount()
 }
 

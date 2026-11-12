@@ -190,7 +190,7 @@ export function unmountAuthMounts(): void {
      */
     for (const wrapper of mountedWrappers) {
         const dismiss = wrapper.find('[data-component="auth-register-success"]')
-        if (dismiss.exists()) void findButton(wrapper, 'Dashboard')?.trigger('click')
+        if (dismiss.exists()) void findButton(wrapper, 'Continue to dashboard')?.trigger('click')
     }
     while (mountedWrappers.length) mountedWrappers.pop()?.unmount()
 }

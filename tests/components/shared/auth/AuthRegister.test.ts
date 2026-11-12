@@ -119,7 +119,7 @@ describe('AuthRegister', () => {
         })
 
         describe('success modal', () => {
-            const SUCCESS = 'Congrats, your registration is successful'
+            const SUCCESS = 'Your Redline account for this project is now created and you can start with the reporting.'
 
             async function registerOk() {
                 const mounted = mountAuthRegister()
@@ -138,21 +138,19 @@ describe('AuthRegister', () => {
                 await submitRegister(wrapper)
 
                 expect(wrapper.text()).toContain(SUCCESS)
-                expect(findButton(wrapper, 'Dashboard')).toBeTruthy()
+                expect(findButton(wrapper, 'Continue to dashboard')).toBeTruthy()
                 expect(findButton(wrapper, 'Start reporting')).toBeTruthy()
             })
 
-            it('Dashboard closes the modal without navigating', async () => {
-                const assign = vi.fn()
-                vi.stubGlobal('location', { ...window.location, assign })
-                const { wrapper } = await registerOk()
-
-                await findButton(wrapper, 'Dashboard')!.trigger('click')
-
-                expect(wrapper.text()).not.toContain(SUCCESS)
-                expect(assign).not.toHaveBeenCalled()
-                vi.unstubAllGlobals()
-            })
+            it('Continue to dashboard closes the modal without navigating', async () => {const assign = vi.fn()
+            vi.stubGlobal('location', { ...window.location, assign })
+            const { wrapper } = await registerOk()
+            
+            await findButton(wrapper, 'Continue to dashboard')!.trigger('click')
+            
+            expect(wrapper.text()).not.toContain(SUCCESS)
+            expect(assign).not.toHaveBeenCalled()
+            vi.unstubAllGlobals()})
 
             it('Start reporting navigates to the host origin', async () => {
                 const assign = vi.fn()

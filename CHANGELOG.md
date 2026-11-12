@@ -2,6 +2,9 @@
 
 ## Added
 
+- **Back to your app** - a back arrow at the top of the dashboard sidebar that
+  takes you out of Redline and back to the host application, one click, in the
+  same tab. Shows when the sidebar is expanded.
 - **Turn off new-report emails** - a "Receive emails" switch in the dashboard
   account menu (click your name in the sidebar). Developers and admins can
   stop the per-report notification emails for themselves and turn them back

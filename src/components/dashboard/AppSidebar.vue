@@ -114,6 +114,19 @@ async function logout() {
     >
         <template #header="{ collapsed }">
             <div class="flex w-full items-center gap-2">
+                <!-- Back to the host app: real browser navigation, not SPA routing. Expanded only:
+                     the 64px collapsed rail cannot fit arrow + separator + logo side by side. -->
+                <template v-if="!collapsed">
+                    <a
+                        href="/"
+                        aria-label="Back to app"
+                        title="Back to app"
+                        class="inline-flex shrink-0 items-center justify-center rounded-full p-0.5 text-xl text-dimmed hover:text-highlighted focus-visible:outline-2 focus-visible:outline-primary"
+                    >
+                        <UIcon name="i-lucide-circle-arrow-left" />
+                    </a>
+                    <USeparator orientation="vertical" class="h-5 shrink-0" />
+                </template>
                 <Logo :size="24" :active="true"></Logo>
                 <span v-if="!collapsed" class="text-lg font-semibold text-highlighted">Redline</span>
             </div>

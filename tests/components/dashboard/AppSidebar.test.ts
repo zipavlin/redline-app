@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { h, nextTick } from 'vue'
+import { useNuxtApp } from '#imports'
+import { TooltipProvider } from 'reka-ui'
 
 const { toastAdd } = vi.hoisted(() => ({ toastAdd: vi.fn() }))
 
@@ -36,14 +39,19 @@ function makeStore(currentUser: typeof user | null = user) {
  */
 function mountSidebar(api: { logout: () => Promise<unknown> }, config: Record<string, unknown> = {}, currentUser: typeof user | null = user) {
     store = makeStore(currentUser)
-    return mount(AppSidebar, {
-        global: {
-            provide: {
-                redline: { api: { auth: api }, config },
-                store,
+    // The real dashboard mounts AppSidebar inside UApp, whose reka-ui
+    // TooltipProvider is required once the collapsed rail renders nav tooltips.
+    return mount(
+        { render: () => h(TooltipProvider, () => h(AppSidebar)) },
+        {
+            global: {
+                provide: {
+                    redline: { api: { auth: api }, config },
+                    store,
+                },
             },
         },
-    })
+    )
 }
 
 async function flushModal() {
@@ -129,6 +137,34 @@ describe('AppSidebar logout', () => {
         expect(store.auth.user).toEqual(user)
         expect(reload).not.toHaveBeenCalled()
         expect(toastAdd).toHaveBeenCalledWith({ title: 'Could not log out - check your connection', color: 'error' })
+    })
+})
+
+describe('Back to app link', () => {
+    it('renders first in the header with accessible name, tooltip and host root target', () => {
+        const logout = vi.fn().mockResolvedValue({ ok: true, status: 204, data: null })
+        wrapper = mountSidebar({ logout })
+        const link = wrapper.find('a[aria-label="Back to app"]')
+        expect(link.exists(), 'back-to-host link should render in the sidebar header').toBe(true)
+        expect(link.attributes('href')).toBe('/')
+        expect(link.attributes('title')).toBe('Back to app')
+        expect(link.element.parentElement!.firstElementChild, 'back link should be the first item of the header row').toBe(link.element)
+    })
+
+    it('hides the back link and separator when collapsed, keeping the logo', async () => {
+        const logout = vi.fn().mockResolvedValue({ ok: true, status: 204, data: null })
+        wrapper = mountSidebar({ logout })
+        // The Vue-mode cookie persistence is a no-op stub, so the sidebar's own
+        // runtime hook is the deterministic way to drive the collapsed state.
+        useNuxtApp().hooks.callHook('dashboard:sidebar:collapse', true)
+        await flushPromises()
+        await nextTick()
+        expect(wrapper.find('[data-collapsed="true"]').exists(), 'sidebar should be collapsed').toBe(true)
+        const header = wrapper.find('[data-slot="header"]')
+        expect(header.exists()).toBe(true)
+        expect(header.find('a[aria-label="Back to app"]').exists(), 'back link is expanded-only').toBe(false)
+        expect(header.find('[data-slot="root"][data-orientation="vertical"]').exists(), 'separator is expanded-only').toBe(false)
+        expect(header.find('svg[data-component="logo"]').exists(), 'logo stays visible when collapsed').toBe(true)
     })
 })
 

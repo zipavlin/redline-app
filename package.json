@@ -23,7 +23,7 @@
     "@svgdotjs/svg.select.js": "^4.0.3",
     "@tanstack/vue-query": "^5.101.4",
     "@tiptap/extension-bold": "^3.29.2",
-    "@tiptap/extension-document": "^3.29.2",
+    "@tiptap/extension-document": "^3.30.0",
     "@tiptap/extension-hard-break": "^3.29.2",
     "@tiptap/extension-history": "^3.29.2",
     "@tiptap/extension-italic": "^3.29.2",

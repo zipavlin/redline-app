@@ -26,7 +26,7 @@
     "@tiptap/extension-document": "^3.29.2",
     "@tiptap/extension-hard-break": "^3.29.2",
     "@tiptap/extension-history": "^3.29.2",
-    "@tiptap/extension-italic": "^3.29.2",
+    "@tiptap/extension-italic": "^3.30.0",
     "@tiptap/extension-link": "^3.29.2",
     "@tiptap/extension-list": "^3.29.2",
     "@tiptap/extension-paragraph": "^3.29.2",

@@ -420,6 +420,40 @@ describe('authSlice', () => {
             expect(auth.user?.notify_new_reports).toBe(true)
         })
     })
+
+    describe('markWalkthroughSeen', () => {
+        it('flips the local flag and posts the flag once', async () => {
+            const redline = createRedline()
+            redline.api.auth.me.mockResolvedValue(ME_OK({ walkthrough_seen: false }))
+            redline.api.auth.updateMe = vi.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                data: { user: { id: 'u1', name: 'Ada', email: 'ada@example.com', role: 'developer', walkthrough_seen: true } },
+            })
+
+            const { auth, markWalkthroughSeen } = authSlice(redline)
+            await vi.waitFor(() => expect(auth.user).not.toBeNull())
+
+            await markWalkthroughSeen()
+
+            expect(redline.api.auth.updateMe).toHaveBeenCalledTimes(1)
+            expect(redline.api.auth.updateMe).toHaveBeenCalledWith({ walkthrough_seen: true })
+            expect(auth.user?.walkthrough_seen).toBe(true)
+        })
+
+        it('keeps the local flag when the call fails, so this session is never asked twice', async () => {
+            const redline = createRedline()
+            redline.api.auth.me.mockResolvedValue(ME_OK({ walkthrough_seen: false }))
+            redline.api.auth.updateMe = vi.fn().mockRejectedValue(new Error('network down'))
+
+            const { auth, markWalkthroughSeen } = authSlice(redline)
+            await vi.waitFor(() => expect(auth.user).not.toBeNull())
+
+            await markWalkthroughSeen()
+
+            expect(auth.user?.walkthrough_seen).toBe(true)
+        })
+    })
 })
 
 describe('me() contract v3', () => {

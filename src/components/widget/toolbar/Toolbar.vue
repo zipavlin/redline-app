@@ -3,12 +3,15 @@ import { computed, inject } from 'vue'
 import { useStore } from '@/composables/useStore'
 import type { WidgetStore } from '@/store/widget'
 import type { ModeControls } from '@/composables/useModeManager'
+import type { WalkthroughControls } from '@/composables/useWalkthrough'
 import type { RedlineContext } from '@/composables/useApi'
 import Logo from '@/components/shared/ui/Logo.vue'
 import ToolbarMenu from '@/components/widget/toolbar/ToolbarMenu.vue'
+import TourCard from '@/components/widget/walkthrough/TourCard.vue'
 
 const { activatePin, activateAnnotation, activateVideo } = inject<ModeControls>('modeManager')!
 const redline = inject<RedlineContext>('redline') as RedlineContext
+const tour = inject<WalkthroughControls | null>('walkthrough', null)
 const store = useStore<WidgetStore>()
 
 /**
@@ -58,6 +61,7 @@ function toggleToolbar() {
                             :color="store.mode === 'pin' ? 'primary' : 'neutral'"
                             variant="soft"
                             class="rounded-full"
+                            :class="{ 'ring-2 ring-primary': tour?.highlight === 'comment' }"
                             icon="i-lucide-message-square-text"
                             aria-label="Pin a comment"
                             @click="activatePin"
@@ -97,6 +101,7 @@ function toggleToolbar() {
                             variant="ghost"
                             square
                             class="rounded-full"
+                            :class="{ 'ring-2 ring-primary': tour?.highlight === 'filter' }"
                             :icon="store.filter.type === 'all' ? 'i-lucide-eye' : 'i-lucide-eye-off'"
                             :aria-label="store.filter.type === 'all' ? 'Show unresolved only' : 'Show all reports'"
                             @click="toggleFilter"
@@ -129,5 +134,8 @@ function toggleToolbar() {
                 <Logo :size="24" :active="store.settings.expanded" />
             </UButton>
         </UChip>
+
+        <!-- The composer hosts the card itself while it is open, so only one is ever visible. -->
+        <TourCard v-if="!store.report.pending" class="w-56" />
     </div>
 </template>

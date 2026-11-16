@@ -34,7 +34,7 @@ export const useWidgetStore = defineStore('redline-widget', () => {
     const redline = inject<RedlineContext>('redline') as RedlineContext
     const config = redline.config as WidgetConfig
 
-    const { auth, activateSession } = authSlice(redline)
+    const { auth, activateSession, markWalkthroughSeen } = authSlice(redline)
     const { report, sortReports, unloadReports } = reportSlice()
     const filter = reactive({ type: null as string | null, url: window.location.href })
     const { settings } = settingsSlice(redline)
@@ -218,7 +218,7 @@ export const useWidgetStore = defineStore('redline-widget', () => {
 
     return {
         auth, report, mode, capturing, browser, capabilities, filter, settings,
-        unresolvedCount, refreshUnresolvedCount, activateSession, sortReports,
+        unresolvedCount, refreshUnresolvedCount, activateSession, markWalkthroughSeen, sortReports,
         unloadReports, loadReports, openReport, closeReport, focusReport,
         deleteReport, changeStatus, feature,
     }

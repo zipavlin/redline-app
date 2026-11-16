@@ -148,15 +148,16 @@ Responses:
   (v3 - see `errors.md`).
 
 ### PATCH /auth/me - cookie | bearer (CSRF required for cookie)
-Self-service preference update. Body: `notify_new_reports` (required,
-boolean) - the ONLY accepted key; anything else is `422`
-`{ "errors": ["Only notify_new_reports may be updated here."] }`. Name/email/
-role/status changes stay admin-only via `PATCH /user/{user}`.
+Self-service preference update. Body: `notify_new_reports` (boolean) and/or
+`walkthrough_seen` (boolean) - the ONLY accepted keys, at least one required;
+anything else is `422`
+`{ "errors": ["Only notify_new_reports and walkthrough_seen may be updated here."], "pending": false }`.
+Name/email/role/status changes stay admin-only via `PATCH /user/{user}`.
 
 Responses:
 - `200` - `{ "user": {...} }` (fresh canonical row).
-- `422` - validation error (missing/non-boolean `notify_new_reports`, or any
-  unknown key).
+- `422` - validation error (missing/non-boolean `notify_new_reports` or
+  `walkthrough_seen`, or any unknown key).
 - `403` - unauthenticated (v3 `error: "unauthenticated"` marker; see `errors.md`).
 
 ### GET /auth/refresh - cookie | bearer
@@ -182,6 +183,7 @@ Responses:
   "role": "reporter",
   "status": "approved",
   "notify_new_reports": true,
+  "walkthrough_seen": false,
   "isApproved": true,
   "isPending": false,
   "isDeveloper": false,
@@ -191,8 +193,9 @@ Responses:
   "updated_at": "2026-07-01T10:00:00.000000Z"
 }
 ```
-`role` ∈ `guest|reporter|developer|admin`. `password` and `token_version` are
-never serialized.
+`role` ∈ `guest|reporter|developer|admin`. `walkthrough_seen` is `false`
+until the first-run product walkthrough has been shown or completed for the
+user. `password` and `token_version` are never serialized.
 
 ---
 

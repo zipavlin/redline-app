@@ -166,5 +166,20 @@ export function authSlice(redline: RedlineContext) {
         }
     }
 
-    return { auth, activateSession, setNotifyNewReports }
+    /**
+     * First-run walkthrough flag (PATCH /auth/me). The local flag flips first so
+     * nothing re-asks this session; a failed call only means the next mount asks
+     * again - better than a modal that blocks the widget on a server hiccup.
+     */
+    async function markWalkthroughSeen(): Promise<void> {
+        const user = auth.user
+        if (!user) return
+        user.walkthrough_seen = true
+        try {
+            const result = await redline.api.auth.updateMe({ walkthrough_seen: true })
+            if (result.ok && result.data?.user) auth.user = toAuthUser(result.data.user)
+        } catch { /** Keep the local flag; the next successful call corrects the server */ }
+    }
+
+    return { auth, activateSession, setNotifyNewReports, markWalkthroughSeen }
 }

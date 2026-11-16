@@ -5,12 +5,14 @@ import type { WidgetStore } from '@/store/widget'
 import { identity } from '@/core/storage'
 import Position from '@/components/shared/ui/icons/Position.vue'
 import type { RedlineContext } from '@/composables/useApi'
+import type { WalkthroughControls } from '@/composables/useWalkthrough'
 import { APPEARANCES, FILTERS, POSITIONS } from '@/components/widget/toolbar/presentation'
 import { useToast } from '@nuxt/ui/composables/useToast'
 import { defineShortcuts } from '@nuxt/ui/composables/defineShortcuts'
 
 const redline = inject<RedlineContext>('redline') as RedlineContext
 const store = useStore<WidgetStore>()
+const tour = inject<WalkthroughControls | null>('walkthrough', null)
 const toast = useToast()
 
 const open = ref(false)
@@ -35,6 +37,12 @@ function selectFilter(key: string) {
 
 function setAppearance(value: string) {
     store.settings.theme = value
+}
+
+/** Replay the tour without touching `walkthrough_seen` - it is not a first run. */
+function replayWalkthrough() {
+    open.value = false
+    tour?.start()
 }
 
 async function logout() {
@@ -64,11 +72,24 @@ async function logout() {
 /**
  * Registered in onMounted (mirrors Widget.ce.vue). Note the key alias is `escape`, not
  * `esc` - the event's key is "Escape", so `esc` never matched (the original bug).
+ *
+ * Escape is arbitrated here alone: this handler is the earliest window keydown
+ * listener (a child mounts before the widget root), and defineShortcuts already
+ * calls preventDefault, so a second listener could not tell whose Escape it was.
  */
 onMounted(() => {
     defineShortcuts({
         alt_m: () => { open.value = !open.value },
-        escape: { usingInput: false, handler: () => { if (open.value) open.value = false } },
+        escape: {
+            usingInput: false,
+            handler: () => {
+                if (open.value) {
+                    open.value = false
+                    return
+                }
+                tour?.stop()
+            },
+        },
     })
 })
 </script>
@@ -90,6 +111,7 @@ onMounted(() => {
                 variant="ghost"
                 aria-label="Account"
                 class="rounded-full"
+                :class="{ 'ring-2 ring-primary': tour?.highlight === 'menu' }"
             />
         </UTooltip>
 
@@ -116,6 +138,22 @@ onMounted(() => {
                     :ui="ui"
                     :to="redline.config.dashboard as string"
                     target="_blank"
+                />
+                <UButton
+                    v-if="store.feature('walkthrough')"
+                    block
+                    color="neutral"
+                    variant="link"
+                    size="xs"
+                    icon="i-lucide-compass"
+                    label="Show walkthrough"
+                    :ui="{
+                        base: 'justify-start -mt-2 ml-1 gap-2',
+                        leadingIcon: 'text-dimmed',
+                        trailingIcon: 'ms-auto text-dimmed',
+                        label: 'text-dimmed',
+                    }"
+                    @click="replayWalkthrough"
                 />
 
                 <USeparator />

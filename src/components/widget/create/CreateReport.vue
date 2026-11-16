@@ -3,9 +3,10 @@
  * New-report composer - anchored to the pending pin (UPopover reference + virtual
  * element), with an inline screenshot attach and a rich-text body (UEditor).
  */
-import { computed, onUnmounted, ref, shallowRef, watch } from 'vue'
+import { computed, inject, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { useStore } from '@/composables/useStore'
 import type { WidgetStore } from '@/store/widget'
+import type { WalkthroughControls } from '@/composables/useWalkthrough'
 import { usePinAnchor } from '@/composables/usePinAnchor'
 import { getPinCoordinates } from '@/core/pin'
 import { isHtmlEmpty } from '@/core/text'
@@ -18,6 +19,7 @@ import Editor from '@/components/shared/ui/Editor.vue'
 import MemberPopover from '@/components/shared/report/MemberPopover.vue'
 import DuePopover from '@/components/shared/report/DuePopover.vue'
 import PriorityPopover from '@/components/shared/report/PriorityPopover.vue'
+import TourCard from '@/components/widget/walkthrough/TourCard.vue'
 import {
     commandsSuggestionItems,
     insertsSuggestionItems,
@@ -27,6 +29,7 @@ import type { EditorCustomHandlers, EditorSuggestionMenuItem } from '@nuxt/ui'
 import { useToast } from '@nuxt/ui/composables/useToast'
 
 const store = useStore<WidgetStore>()
+const tour = inject<WalkthroughControls | null>('walkthrough', null)
 const toast = useToast()
 
 // State
@@ -266,6 +269,10 @@ function _onPendingScroll() {
     >
         <template #content>
             <div class="flex flex-col">
+                <!-- In here, not the toolbar column: a card outside this popover is an outside click that dismisses it. -->
+                <div v-if="tour?.active" class="px-3 pt-3">
+                    <TourCard />
+                </div>
                 <div class="p-3">
                     <UChatPrompt
                         :loading="submitting"

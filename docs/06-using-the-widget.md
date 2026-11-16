@@ -117,6 +117,7 @@ The gear button (`Alt`+`M`) opens the account popover with the current user's na
 | Position | The toolbar's corner: top-left, top-right, bottom-left, bottom-right (defaults to the `position` attribute, `bottom-right`) |
 | Appearance | Light or Dark - the widget's theme lives in its own shadow DOM and never touches the host page (defaults to the `theme` attribute, `dark`) |
 | Filter | The filter submenu described above |
+| Show walkthrough | Replays the guided tour over the toolbar and report form. The tour is also offered once to signed-in users right after the widget loads, if the backend enables the `walkthrough` feature |
 | Log out | Ends the session and drops every pin from the page; if the server refuses, your session stays intact and you get a "Could not log out" toast |
 
 ## Deep links

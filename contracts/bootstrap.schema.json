@@ -17,7 +17,7 @@
       "description": "Enabled feature flags - opt-in: a feature is enabled if and only if its name is listed in REDLINE_FEATURES (comma-separated; an empty default enables none). Missing from the list = disabled.",
       "items": {
         "type": "string",
-        "enum": ["screenshots", "videos", "files", "comments", "mcp"]
+        "enum": ["screenshots", "videos", "files", "comments", "mcp", "walkthrough"]
       },
       "uniqueItems": true
     },

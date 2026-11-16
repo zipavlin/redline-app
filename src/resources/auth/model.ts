@@ -5,6 +5,7 @@ export interface AuthUser {
     role: string
     status?: string
     notify_new_reports?: boolean
+    walkthrough_seen?: boolean
     [key: string]: unknown
 }
 

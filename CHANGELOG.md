@@ -2,6 +2,12 @@
 
 ## Added
 
+- **First-run walkthrough** - signed-in users get a short "Do you want a short
+  walkthrough?" prompt the first time the widget loads, then a guided tour that
+  highlights Pin a comment, the report filter and the account menu and carries
+  through to describing and sending a first report. Answering either way is
+  remembered, so it appears once per user, and guests are never prompted. It
+  only runs when the backend enables the `walkthrough` feature.
 - **Back to your app** - a back arrow at the top of the dashboard sidebar that
   takes you out of Redline and back to the host application, one click, in the
   same tab. Shows when the sidebar is expanded.

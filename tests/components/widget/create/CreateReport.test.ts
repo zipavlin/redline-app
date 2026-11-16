@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { nextTick } from 'vue'
+import { h, nextTick, provide, reactive } from 'vue'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 
@@ -83,6 +83,8 @@ vi.mock('@/components/shared/ui/Editor.vue', () => ({
 
 import CreateReport from '@/components/widget/create/CreateReport.vue'
 import PriorityPopover from '@/components/shared/report/PriorityPopover.vue'
+import Toolbar from '@/components/widget/toolbar/Toolbar.vue'
+import { useWalkthrough, type WalkthroughControls } from '@/composables/useWalkthrough'
 
 interface Ctx {
     fillStyle: string
@@ -122,6 +124,10 @@ function makeStore(features: string[] = ['screenshots'], user: unknown = null) {
         },
         filter: { type: null },
         unresolvedCount: 0,
+        mode: null,
+        capturing: false,
+        capabilities: { capture: false },
+        closeReport: vi.fn(),
         feature: vi.fn((name: string) => features.includes(name)),
         loadReports: vi.fn(),
         unloadReports: vi.fn(),
@@ -412,5 +418,132 @@ describe('CreateReport priority popover dismissal wiring', () => {
 
         await submitComposer(w, false)
         expect(api.report.store).toHaveBeenCalledWith(expect.objectContaining({ priority: 'critical' }))
+    })
+})
+
+/**
+ * The card lives in whichever surface owns the click boundary: inside the composer
+ * popover while it is open (a card in the toolbar column would be an outside click
+ * that dismisses the composer), and in the toolbar column otherwise.
+ */
+describe('walkthrough card placement', () => {
+    const reporter = { id: 'u1', name: 'Ada', email: 'ada@test.dev', role: 'reporter' }
+
+    function mountToolbarAndComposer(pending: unknown) {
+        const store = reactive(makeStore(['screenshots'], reporter))
+        store.report.pending = pending
+        let tour: WalkthroughControls | undefined
+        const Host = {
+            setup() {
+                tour = useWalkthrough()
+                provide('walkthrough', tour)
+                return () => h('div', [h(Toolbar), h(CreateReport)])
+            },
+        }
+        const queryClient = new QueryClient({
+            defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+        })
+        wrapper = mount(Host, {
+            global: {
+                plugins: [[VueQueryPlugin, { queryClient }]],
+                provide: {
+                    redline: { api: {}, config: {} },
+                    store,
+                    modeManager: { activatePin: vi.fn(), activateAnnotation: vi.fn(), activateVideo: vi.fn(), exitCurrentMode: vi.fn() },
+                },
+            },
+        })
+        return { store, tour: tour! }
+    }
+
+    function cards() {
+        return wrapper!.findAll('[data-component="walkthrough-card"]')
+    }
+
+    function inComposer() {
+        return wrapper!.findAll('.popover-stub [data-component="walkthrough-card"]')
+    }
+
+    function inToolbar() {
+        return wrapper!.findAll('[data-component="toolbar"] [data-component="walkthrough-card"]')
+    }
+
+    it('renders the card inside the open composer and not in the toolbar column', async () => {
+        const { store, tour } = mountToolbarAndComposer({ pin: { x: 50, y: 50 }, element: null })
+        await flushPromises()
+
+        tour.start()
+        await nextTick()
+        tour.next()
+        tour.next()
+        tour.next()
+        await flushPromises()
+
+        expect(store.report.pending).not.toBeNull()
+        expect(tour.step?.id).toBe('body')
+        expect(cards()).toHaveLength(1)
+        expect(inComposer()).toHaveLength(1)
+        expect(inToolbar()).toHaveLength(0)
+    })
+
+    it('keeps the card in the toolbar column while the composer is closed', async () => {
+        const { store, tour } = mountToolbarAndComposer(null)
+        await flushPromises()
+
+        tour.start()
+        await nextTick()
+        tour.next()
+        tour.next()
+        tour.next()
+        await flushPromises()
+
+        expect(store.report.pending).toBeNull()
+        expect(tour.step?.id).toBe('pin')
+        expect(cards()).toHaveLength(1)
+        expect(inToolbar()).toHaveLength(1)
+        expect(inComposer()).toHaveLength(0)
+    })
+
+    it('keeps exactly one card when advancing from body to submit', async () => {
+        const { tour } = mountToolbarAndComposer({ pin: { x: 50, y: 50 }, element: null })
+        await flushPromises()
+
+        tour.start()
+        await nextTick()
+        tour.next()
+        tour.next()
+        tour.next()
+        await nextTick()
+        expect(tour.step?.id).toBe('body')
+
+        tour.next()
+        await flushPromises()
+
+        expect(tour.step?.id).toBe('submit')
+        expect(cards()).toHaveLength(1)
+        expect(inComposer()).toHaveLength(1)
+    })
+
+    /**
+     * The stubbed UPopover has no outside-click dismissal, so this pins the placement
+     * (buttons are inside the content) rather than reka's dismissal itself.
+     */
+    it('leaves the composer open when Next is clicked inside the card', async () => {
+        const { store, tour } = mountToolbarAndComposer({ pin: { x: 50, y: 50 }, element: null })
+        await flushPromises()
+
+        tour.start()
+        await nextTick()
+        tour.next()
+        tour.next()
+        tour.next()
+        await flushPromises()
+
+        const next = wrapper!.find('.popover-stub [data-component="walkthrough-card"] button:last-of-type')
+        await next.trigger('click')
+        await flushPromises()
+
+        expect(tour.step?.id).toBe('submit')
+        expect(store.report.pending).not.toBeNull()
     })
 })

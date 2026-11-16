@@ -25,6 +25,7 @@ import { identity } from '@/core/storage'
 import { canCapture } from '@/core/browser'
 import { useWidgetStore } from '@/store/widget'
 import { useModeManager } from '@/composables/useModeManager'
+import { useWalkthrough } from '@/composables/useWalkthrough'
 import type { RedlineContext } from '@/composables/useApi'
 
 import Toolbar from '@/components/widget/toolbar/Toolbar.vue'
@@ -37,6 +38,7 @@ import CreateReport from '@/components/widget/create/CreateReport.vue'
 import CreateAnnotation from '@/components/widget/create/CreateAnnotation.vue'
 import CreateVideo from '@/components/widget/create/CreateVideo.vue'
 import ConfirmDialog from '@/components/shared/ui/ConfirmDialog.vue'
+import WalkthroughPrompt from '@/components/widget/walkthrough/WalkthroughPrompt.vue'
 import { defineShortcuts } from '@nuxt/ui/composables/defineShortcuts'
 
 // State
@@ -103,6 +105,9 @@ app.provide('redline', redline)
 
 const store = app.runWithContext(() => useWidgetStore())
 app.provide('store', store)
+
+/** Walkthrough state, provided like `modeManager` below so the toolbar and menu drive one instance. */
+provide('walkthrough', useWalkthrough())
 
 // Bootstrap: fetch capability flags, then render
 /**
@@ -242,6 +247,7 @@ onUnmounted(() => {
             <CreateReport />
             <CreateAnnotation />
             <CreateVideo />
+            <WalkthroughPrompt />
             <ConfirmDialog />
         </UApp>
     </div>

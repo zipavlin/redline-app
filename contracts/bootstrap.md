@@ -35,7 +35,7 @@ No secrets or request data - only capability flags and config names.
 | Field | Type | Default (OpenAuthProvider, no config) | Description |
 |---|---|---|---|
 | `version` | integer | `3` | Contract version. Bumped only on breaking contract changes. v2 removed the report `has_media` filter in favor of the separate `screenshot:exists` / `video:exists` existence filters (see wire note below). v3 changed authentication-denied responses from HTTP 401 to HTTP 403 with an added `error: "unauthenticated"` marker and made `GET /auth/me` answer `200 {"user": null}` when no credentials are presented |
-| `features` | string[] | `[]` | Enabled feature flags - opt-in: a feature is enabled if and only if its name is listed in `REDLINE_FEATURES` (comma-separated; an empty default enables none). Names (five): `screenshots`, `videos`, `files`, `comments`, `mcp`; missing from the list = disabled |
+| `features` | string[] | `[]` | Enabled feature flags - opt-in: a feature is enabled if and only if its name is listed in `REDLINE_FEATURES` (comma-separated; an empty default enables none). Names (six): `screenshots`, `videos`, `files`, `comments`, `mcp`, `walkthrough` (the widget may show a first-run product walkthrough to authenticated users); missing from the list = disabled |
 | `capabilities.guest_reporting` | boolean | `false` | `redline.auth.guest` - anonymous report submission allowed |
 | `capabilities.auth.can_login` | boolean | `true` | `AuthProvider::canLogin()` (false for CloudAuthProvider) |
 | `capabilities.auth.can_register` | boolean | `true` | `AuthProvider::canRegister()` (false for closed/cloud) |
